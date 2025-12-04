@@ -74,7 +74,7 @@ export default class Main {
     databus.balls = []
     const centerX = canvas.width / 2
     const ballCount = 4
-    const baseSpacing = 60
+    const baseSpacing = 80
     const randomOffsets = []
 
     for (let i = 0; i < ballCount / 2; i++) {
@@ -90,7 +90,7 @@ export default class Main {
       const ball = new Ball(
         i,
         centerX + (isLeftSide ? -offset : offset),
-        100 - (i * 30),
+        100,
         15,
         `hsl(${i * (360 / ballCount)}, 70%, 50%)`
       )
