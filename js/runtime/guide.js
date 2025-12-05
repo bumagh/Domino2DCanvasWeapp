@@ -190,7 +190,7 @@ export default class Guide {
         ctx.save()
 
         // 整个画布半透明黑色遮罩
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
         ctx.fillRect(0, 0, canvasWidth, canvasHeight)
 
         // 根据步骤创建高亮区域（挖空效果）

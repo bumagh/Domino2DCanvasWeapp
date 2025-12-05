@@ -71,6 +71,7 @@ export default class Main {
       console.log('开始新手引导')
     } else {
       console.log('新手引导已完成')
+      this.guide.isActive = false;
     }
     // 初始化游戏对象
     this.initGameObjects()
@@ -582,12 +583,8 @@ export default class Main {
         return
       }
       // 处理UI按钮点击
-      // const buttonAction = this.gameInfo.handleClick(x, y)
-      // if (buttonAction) {
-      //   this.handleButtonAction(buttonAction)
-      //   return
-      // }
-
+      if (this.gameInfo.handleMenuButtonClick(x, y))
+        this.toggleMenuModal()
       // 处理助力模态框点击
       if (this.gameInfo.uiPositions.betModal.visible) {
         const betAction = this.gameInfo.handleBetModalClick(x, y, canvas.width, canvas.height)
