@@ -593,8 +593,15 @@ export default class Main {
         return
       }
       // 处理UI按钮点击
-      if (this.gameInfo.handleMenuButtonClick(x, y))
+      if (this.gameInfo.handleMenuButtonClick(x, y) && databus.gameState == 'idle') {
         this.toggleMenuModal()
+
+      }
+      if (this.gameInfo.uiPositions.menuModal.visible && databus.gameState == 'idle') {
+        const menuAction = this.gameInfo.handleMenuModalClick(x, y)
+        this.handleButtonAction(menuAction)
+
+      }
       // 处理助力模态框点击
       if (this.gameInfo.uiPositions.betModal.visible) {
         const betAction = this.gameInfo.handleBetModalClick(x, y, canvas.width, canvas.height)

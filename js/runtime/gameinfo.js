@@ -122,7 +122,7 @@ export default class GameInfo {
    */
   drawMenuModal (ctx, canvasWidth, canvasHeight) {
     const modalWidth = 240
-    const modalHeight = 580
+    const modalHeight = 480
     const x = (canvasWidth - modalWidth) / 2
     const y = (canvasHeight - modalHeight) / 2
 
