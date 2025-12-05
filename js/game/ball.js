@@ -20,7 +20,7 @@ export default class Ball {
   /**
    * 渲染滚珠
    */
-  render(ctx) {
+  render (ctx) {
     if (!this.visible) return
 
     ctx.save()
@@ -36,6 +36,21 @@ export default class Ball {
       ctx.setLineDash([5, 3])
       ctx.stroke()
       ctx.setLineDash([])
+      // 绘制选中指示器（小箭头）
+      ctx.fillStyle = '#ffffff'
+      ctx.beginPath()
+      ctx.moveTo(this.x, this.y - this.radius - 15)
+      ctx.lineTo(this.x - 8, this.y - this.radius - 30)
+      ctx.lineTo(this.x + 8, this.y - this.radius - 30)
+      ctx.closePath()
+      ctx.fill()
+
+      // 显示"已选中"文字
+      ctx.fillStyle = '#ffffff'
+      ctx.font = 'bold 12px Arial'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'bottom'
+      ctx.fillText('已选中', this.x, this.y - this.radius - 35)
     }
 
     // 如果有助力
@@ -67,7 +82,7 @@ export default class Ball {
   /**
    * 更新滚珠状态
    */
-  update(gravity, friction, airResistance) {
+  update (gravity, friction, airResistance) {
     if (this.finished) return
 
     this.vy += gravity
@@ -81,15 +96,15 @@ export default class Ball {
   /**
    * 判断点是否在滚珠内
    */
-  isPointInside(x, y) {
+  isPointInside (x, y) {
     const distance = Math.sqrt((x - this.x) ** 2 + (y - this.y) ** 2)
-    return distance < this.radius * 2.5
+    return distance < this.radius * 2
   }
 
   /**
    * 重置滚珠状态
    */
-  reset() {
+  reset () {
     this.vx = 0
     this.vy = 0
     this.hasBet = false

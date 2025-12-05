@@ -18,7 +18,7 @@ export default class Guide {
                 title: '选择滚珠',
                 content: '点击任意一个滚珠进行选择，\n被选中的滚珠会有白色边框',
                 target: 'balls',
-                position: 'center',
+                position: 'bottom',
                 arrow: 'down',
                 nextText: '下一步'
             },
@@ -27,7 +27,7 @@ export default class Guide {
                 title: '打开游戏菜单',
                 content: '点击右上角的菜单按钮打开游戏菜单',
                 target: 'menuButton',
-                position: 'center',
+                position: 'bottom',
                 arrow: 'right',
                 nextText: '下一步'
             },
@@ -36,7 +36,7 @@ export default class Guide {
                 title: '开始游戏',
                 content: '点击"开始游戏"按钮，\n开始预览赛道并选择助力积分',
                 target: 'startButton',
-                position: 'center',
+                position: 'bottom',
                 arrow: 'right',
                 nextText: '下一步'
             },
@@ -45,7 +45,7 @@ export default class Guide {
                 title: '选择助力积分',
                 content: '选择你想要投入的积分，\n积分越高奖励越大',
                 target: 'betModal',
-                position: 'center',
+                position: 'bottom',
                 arrow: 'down',
                 nextText: '明白了'
             },
@@ -355,6 +355,10 @@ export default class Guide {
             case 'right':
                 boxX = canvasWidth - boxWidth - 50
                 boxY = canvasHeight / 2 - boxHeight / 2
+                break
+            case 'bottom':
+                boxX = canvasWidth - boxWidth - 50
+                boxY = canvasHeight - boxHeight
                 break
             default:
                 boxX = canvasWidth / 2 - boxWidth / 2

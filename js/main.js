@@ -87,7 +87,10 @@ export default class Main {
     const ballCount = 4
     const baseSpacing = 80
     const randomOffsets = []
-
+    // 计算滚珠水平分布位置
+    const totalWidth = canvas.width * 0.8  // 使用80%的宽度空间
+    const startX = (canvas.width - totalWidth) / 2
+    const spacing = totalWidth / (ballCount + 1)  // 平均分成5份，滚珠放在中间4个位置
     for (let i = 0; i < ballCount / 2; i++) {
       const offset = baseSpacing + Math.random() * 80
       randomOffsets.push(offset)
@@ -97,17 +100,24 @@ export default class Main {
       const isLeftSide = i % 2 === 0
       const pairIndex = Math.floor(i / 2)
       const offset = randomOffsets[pairIndex] || baseSpacing
-
+      // 计算滚珠的水平位置（平均分布）
+      const x = startX + spacing * (i + 1)
       const ball = new Ball(
         i,
-        centerX + (isLeftSide ? -offset : offset),
-        100,
+        x,
+        150,
         15,
         `hsl(${i * (360 / ballCount)}, 70%, 50%)`
       )
       databus.balls.push(ball)
     }
-
+    // 默认选中第一个滚珠
+    if (databus.balls.length > 0) {
+      databus.selectedBall = databus.balls[0]
+      databus.selectedBall.selected = true
+      databus.selectedBall.hasBet = false  // 确保初始状态没有助力
+      console.log('默认选中滚珠:', databus.selectedBall.id)
+    }
     // 初始化障碍物
     databus.obstacles = []
     const rows = 25
@@ -615,14 +625,31 @@ export default class Main {
       // 处理滚珠选择
       if (databus.gameState === 'idle' || databus.gameState === 'betting') {
         const worldY = y + camera.offsetY
+        // 检查是否点击了滚珠
+        let clickedBall = null
         databus.balls.forEach(ball => {
           if (ball.isPointInside(x, worldY)) {
-            databus.selectedBall = ball
-            ball.selected = true
-          } else {
-            ball.selected = false
+            clickedBall = ball
           }
         })
+
+        // 如果点击了滚珠
+        if (clickedBall) {
+          // 如果点击的是已经选中的滚珠，不执行任何操作（保持选中）
+          if (databus.selectedBall && databus.selectedBall.id === clickedBall.id) {
+            console.log('重复点击已选中的滚珠:', clickedBall.id)
+            return
+          }
+
+          // 取消之前选中的滚珠
+          databus.balls.forEach(ball => {
+            ball.selected = false
+          })
+
+          // 设置新选中的滚珠
+          databus.selectedBall = clickedBall
+          clickedBall.selected = true
+        }
       }
     })
   }
