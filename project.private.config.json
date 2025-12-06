@@ -1,6 +1,6 @@
 {
   "libVersion": "3.11.3",
-  "projectname": "test001",
+  "projectname": "Domino2DCanvasWeapp",
   "setting": {
     "urlCheck": false,
     "coverView": false,
@@ -18,5 +18,6 @@
     "bigPackageSizeSupport": false,
     "checkInvalidKey": true,
     "ignoreDevUnusedFiles": true
-  }
+  },
+  "condition": {}
 }

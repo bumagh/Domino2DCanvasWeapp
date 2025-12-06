@@ -3,10 +3,10 @@ import DataBus from './databus.js'
 import Ball from './game/ball.js'
 import Obstacle from './game/obstacle.js'
 import Camera from './game/camera.js'
-import GameInfo from './runtime/gameinfo.js'
-import Background from './runtime/background.js'
+import GameInfo from './game/gameinfo.js'
+import Background from './game/background.js'
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from './render';
-import Guide from './runtime/guide.js'  // 导入新手引导
+import Guide from './game/guide.js'  // 导入新手引导
 const ctx = canvas.getContext('2d')
 
 const databus = new DataBus()
