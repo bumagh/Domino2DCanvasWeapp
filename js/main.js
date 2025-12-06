@@ -52,9 +52,9 @@ export default class Main {
     // 初始化各模块
     databus.mapHeight = canvas.height * 10
     this.bg = new Background(canvas.width, canvas.height, databus.mapHeight)
-    this.gameInfo = new GameInfo()
+    this.gameInfo = new GameInfo(databus)
     camera = new Camera(canvas.width, canvas.height, databus.mapHeight)
-    
+
     // 初始化新手引导
     this.guide = new Guide()
 
@@ -68,7 +68,7 @@ export default class Main {
       camera: camera,
       guide: that.guide
     });
-    
+
     this.eventManager.init()
 
     // 检查是否需要显示引导
@@ -94,12 +94,12 @@ export default class Main {
     const ballCount = 4
     const baseSpacing = 80
     const randomOffsets = []
-    
+
     // 计算滚珠水平分布位置
     const totalWidth = canvas.width * 0.8
     const startX = (canvas.width - totalWidth) / 2
     const spacing = totalWidth / (ballCount + 1)
-    
+
     for (let i = 0; i < ballCount / 2; i++) {
       const offset = baseSpacing + Math.random() * 80
       randomOffsets.push(offset)
@@ -110,7 +110,7 @@ export default class Main {
       const pairIndex = Math.floor(i / 2)
       const offset = randomOffsets[pairIndex] || baseSpacing
       const x = startX + spacing * (i + 1)
-      
+
       const ball = new Ball(
         i,
         x,
@@ -120,7 +120,7 @@ export default class Main {
       )
       databus.balls.push(ball)
     }
-    
+
     // 默认选中第一个滚珠
     if (databus.balls.length > 0) {
       databus.selectedBall = databus.balls[0]
@@ -136,23 +136,43 @@ export default class Main {
     const endY = databus.mapHeight - 200
     const totalHeight = endY - startY
     const rowSpacing = totalHeight / rows
-
     for (let i = 0; i < rows; i++) {
       const y = startY + i * rowSpacing
       const width = canvas.width * 0.45
-
-      // 增加角度和布局的多样性
-      const angleBase = 15 * (Math.PI / 180)
-      const angleVariation = (Math.sin(i * 0.8) * 15) * (Math.PI / 180)
-      const finalAngle = angleBase + angleVariation
-
+    
+      // 确保角度大于30度且小于150度
+      const angleBase = 60 * (Math.PI / 180) // 从45度改为60度作为基准
+      const angleVariation = (Math.sin(i * 0.8) * 30) * (Math.PI / 180) // 增加变化范围到±30度
+      
+      // 计算基础角度并确保在30-150度范围内
+      let baseAngle = angleBase + angleVariation
+      
+      // 转换到0-180度范围
+      let angleDeg = baseAngle * (180 / Math.PI)
+      
+      // 调整角度确保在30-150度范围内
+      if (angleDeg < 30) {
+        angleDeg = 30 + Math.random() * 10
+      } else if (angleDeg > 70) {
+        angleDeg = 70 - Math.random() * 10
+      } else if (Math.abs(angleDeg - 90) < 5) {
+        // 避免太接近垂直（85-95度），稍微偏移
+        angleDeg = 90 + (Math.random() > 0.5 ? 10 : -10)
+      }
+      
+      // 确保角度在30-150度范围内
+      angleDeg = Math.max(30, Math.min(70, angleDeg))
+      
+      // 重新转换为弧度
+      const finalAngle = angleDeg * (Math.PI / 180)
+      
       // 随机选择颜色
       const colorIndex = i % OBSTACLE_COLORS.length
       const obstacleColor = OBSTACLE_COLORS[colorIndex]
-
+    
       // 两侧障碍物
       databus.obstacles.push(new Obstacle(
-        width * 0.3,
+        width * 0.1,
         y,
         width,
         20,
@@ -160,23 +180,34 @@ export default class Main {
         0.9,
         obstacleColor
       ))
-
+    
       databus.obstacles.push(new Obstacle(
-        canvas.width - width * 0.3,
+        canvas.width - width * 0.1,
         y,
         width,
         20,
-        -finalAngle,
+        -finalAngle, // 对称角度
         0.9,
         obstacleColor
       ))
-
+    
       // 中间障碍物
       if (i % 3 === 1) {
-        const centerAngle = (Math.random() - 0.5) * 45 * (Math.PI / 180)
+        // 中间障碍物角度也在30-150度范围内，避免水平
+        let centerAngleDeg = 30 + Math.random() * 120 // 30-150度
+        
+        // 避免太接近水平或垂直
+        if (centerAngleDeg < 35) centerAngleDeg = 35
+        if (centerAngleDeg > 145) centerAngleDeg = 145
+        if (Math.abs(centerAngleDeg - 90) < 10) {
+          // 如果太接近垂直，偏移到60-70度或110-120度
+          centerAngleDeg = 90 + (Math.random() > 0.5 ? 25 : -25)
+        }
+        
+        const centerAngle = centerAngleDeg * (Math.PI / 180)
         const centerWidth = 80 + Math.random() * 60
         const centerColor = OBSTACLE_COLORS[(colorIndex + 2) % OBSTACLE_COLORS.length]
-
+    
         databus.obstacles.push(new Obstacle(
           centerX,
           y + rowSpacing * 0.5,
@@ -185,21 +216,6 @@ export default class Main {
           centerAngle,
           1.2,
           centerColor
-        ))
-      }
-
-      // 干扰障碍物
-      if (i % 5 === 0) {
-        const extraX = centerX + (Math.random() > 0.5 ? 1 : -1) * (canvas.width * 0.2)
-        databus.obstacles.push(new Obstacle(
-          extraX,
-          y + rowSpacing * 0.3,
-          40,
-          40,
-          Math.PI / 4,
-          1.5,
-          '#ffffff',
-          'block'
         ))
       }
     }
@@ -371,7 +387,7 @@ export default class Main {
    */
   render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    
+
     // 绘制背景
     this.bg.render(ctx, camera.offsetY)
 
@@ -419,7 +435,7 @@ export default class Main {
     if (databus.gameState === 'preview') {
       this.drawPreviewInfo()
     }
-    
+
     // 绘制新手引导（如果有）
     if (this.guide && this.guide.isActive) {
       const uiElements = {
@@ -626,18 +642,22 @@ export default class Main {
    * 领取积分
    */
   claimPoints() {
-    const currentTime = Date.now()
-    if (currentTime - databus.lastClaimTime < databus.claimCooldown) {
+    if (this.gameInfo.claimPoints()) {
+      // 领取成功
       wx.showToast({
-        title: '冷却时间未到',
+        title: `领取成功！获得${this.gameInfo.claimAmount}积分`,
+        icon: 'success'
+      })
+    } else {
+      // 领取失败（冷却中）
+      const remainingTime = this.gameInfo.claimCooldown - (Date.now() - this.gameInfo.lastClaimTime)
+      const seconds = Math.ceil(remainingTime / 1000)
+
+      wx.showToast({
+        title: `冷却时间未到，还需${seconds}秒`,
         icon: 'none'
       })
-      return
     }
-
-    databus.score += databus.claimAmount
-    databus.lastClaimTime = currentTime
-    this.gameInfo.score = databus.score
   }
 
   /**

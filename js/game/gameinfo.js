@@ -2,8 +2,9 @@
  * 游戏信息显示类
  */
 export default class GameInfo {
-  constructor() {
-    this.score = 10
+  constructor(databus) {
+    this.databus = databus; // 添加databus引用
+    this.score = databus.score || 10
     this.betAmount = 0
     this.selectedBall = null
     this.gameState = 'idle' // idle, preview, betting, running, paused, finished
@@ -25,7 +26,8 @@ export default class GameInfo {
           start: { x: 0, y: 60, width: 200, height: 50 },
           pause: { x: 0, y: 120, width: 200, height: 50 },
           restart: { x: 0, y: 180, width: 200, height: 50 },
-          help: { x: 0, y: 240, width: 200, height: 50 }
+          help: { x: 0, y: 240, width: 200, height: 50 },
+          closeMenu: { x: 0, y: 300, width: 200, height: 50 }
         }
       },
 
@@ -36,7 +38,15 @@ export default class GameInfo {
 
       // 帮助弹窗
       helpModal: {
-        visible: false
+        visible: false,
+        modalWidth: 400,
+        modalHeight: 320,
+        closeButton: {
+          x: 0, // 会在绘制时计算
+          y: 0, // 会在绘制时计算
+          width: 200,
+          height: 40
+        }
       },
 
       // 结果弹窗
@@ -48,7 +58,10 @@ export default class GameInfo {
 
     // 当前选中的菜单项
     this.selectedMenuItem = null
-
+    // 冷却时间相关
+    this.lastClaimTime = databus.lastClaimTime || 0
+    this.claimCooldown = databus.claimCooldown || 1800 // 30秒冷却
+    this.claimAmount = databus.claimAmount || 10 // 每次领取的积分
     // 确保 betOptions 存在
     if (!this.betOptions) {
       this.betOptions = [1, 2, 4, 8]
@@ -56,12 +69,96 @@ export default class GameInfo {
   }
 
   /**
+   * 更新积分显示
+   */
+  updateScore(score) {
+    this.score = score
+  }
+  /**
+ * 格式化时间为分:秒
+ */
+  formatTime(ms) {
+    const totalSeconds = Math.ceil(ms / 1000)
+    const minutes = Math.floor(totalSeconds / 60)
+    const seconds = totalSeconds % 60
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  }
+  /**
+  * 获取领取按钮的显示文字
+  */
+  getClaimButtonText() {
+    if (!this.lastClaimTime) {
+      return '领取积分'
+    }
+
+    const currentTime = Date.now()
+    const timeSinceLastClaim = currentTime - this.lastClaimTime
+    const remainingTime = this.claimCooldown - timeSinceLastClaim
+
+    if (remainingTime <= 0) {
+      return '领取积分'
+    } else {
+      // 格式化为秒，保留1位小数
+      const minutesText = Math.floor(remainingTime / 60000)
+      const secondsText = Math.ceil((remainingTime % 60000) / 1000)
+      return `领取冷却中(${minutesText}分${secondsText}秒)`
+    }
+  }
+
+
+  /**
+   * 获取剩余冷却时间（毫秒）
+   */
+  getRemainingCooldown() {
+    if (!this.lastClaimTime) {
+      return 0
+    }
+
+    const currentTime = Date.now()
+    const timeSinceLastClaim = currentTime - this.lastClaimTime
+    const remainingTime = this.claimCooldown - timeSinceLastClaim
+
+    return Math.max(0, remainingTime)
+  }
+  /**
+   * 检查是否可领取积分
+   */
+  canClaimPoints() {
+    if (!this.lastClaimTime) {
+      return true
+    }
+
+    const currentTime = Date.now()
+    const timeSinceLastClaim = currentTime - this.lastClaimTime
+    return timeSinceLastClaim >= this.claimCooldown
+  }
+
+  /**
+  * 领取积分
+  */
+  claimPoints() {
+    if (!this.canClaimPoints()) {
+      return false
+    }
+
+    this.score += this.claimAmount
+    this.lastClaimTime = Date.now()
+
+    // 更新databus中的积分
+    if (this.databus) {
+      this.databus.score = this.score
+      this.databus.lastClaimTime = this.lastClaimTime
+    }
+
+    return true
+  }
+  /**
    * 渲染游戏UI
    * @param {CanvasRenderingContext2D} ctx - canvas上下文
    * @param {number} canvasWidth - canvas宽度
    * @param {number} canvasHeight - canvas高度
    */
-  render (ctx, canvasWidth, canvasHeight) {
+  render(ctx, canvasWidth, canvasHeight) {
     if (!ctx) return
 
     // 绘制状态栏背景
@@ -100,7 +197,7 @@ export default class GameInfo {
   /**
    * 绘制按钮
    */
-  drawButton (ctx, text, position, isSelected = false) {
+  drawButton(ctx, text, position, isSelected = false) {
     // 按钮背景
     ctx.fillStyle = isSelected ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)'
     ctx.fillRect(position.x, position.y, position.width, position.height)
@@ -120,7 +217,7 @@ export default class GameInfo {
   /**
    * 绘制菜单弹窗
    */
-  drawMenuModal (ctx, canvasWidth, canvasHeight) {
+  drawMenuModal(ctx, canvasWidth, canvasHeight) {
     const modalWidth = 240
     const modalHeight = 480
     const x = (canvasWidth - modalWidth) / 2
@@ -150,9 +247,19 @@ export default class GameInfo {
     buttons.restart.y = y + 240
     buttons.help.x = x + 20
     buttons.help.y = y + 300
-
+    buttons.closeMenu.x = x + 20
+    buttons.closeMenu.y = y + 360
+    const canClaim = this.canClaimPoints()
+    const isSelected = this.selectedMenuItem === 'claim'
     // 绘制菜单按钮
-    this.drawButton(ctx, '领取积分', buttons.claim, this.selectedMenuItem === 'claim')
+    // 领取积分按钮（根据冷却状态显示不同颜色）
+    if (canClaim) {
+      // 可以领取时正常显示
+      this.drawButton(ctx, '领取积分', buttons.claim, isSelected)
+    } else {
+      // 冷却中时显示灰色
+      this.drawCoolingButton(ctx, this.getClaimButtonText(), buttons.claim, isSelected)
+    }
     this.drawButton(ctx, '开始游戏', buttons.start, this.selectedMenuItem === 'start')
 
     // 根据游戏状态显示暂停/继续按钮文字
@@ -161,12 +268,31 @@ export default class GameInfo {
 
     this.drawButton(ctx, '重新开始', buttons.restart, this.selectedMenuItem === 'restart')
     this.drawButton(ctx, '游戏帮助', buttons.help, this.selectedMenuItem === 'help')
+    this.drawButton(ctx, '关闭菜单', buttons.closeMenu, this.selectedMenuItem === 'closeMenu')
   }
+  /**
+   * 绘制冷却中的按钮
+   */
+  drawCoolingButton(ctx, text, position, isSelected = false) {
+    // 按钮背景（灰色表示不可用）
+    ctx.fillStyle = isSelected ? 'rgba(100, 100, 100, 0.3)' : 'rgba(100, 100, 100, 0.2)'
+    ctx.fillRect(position.x, position.y, position.width, position.height)
 
+    // 按钮边框（灰色表示不可用）
+    ctx.strokeStyle = isSelected ? 'rgba(150, 150, 150, 0.4)' : 'rgba(150, 150, 150, 0.2)'
+    ctx.strokeRect(position.x, position.y, position.width, position.height)
+
+    // 按钮文字（灰色表示不可用）
+    ctx.fillStyle = '#aaaaaa'
+    ctx.font = '14px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(text, position.x + position.width / 2, position.y + position.height / 2)
+  }
   /**
    * 绘制助力弹窗
    */
-  drawBetModal (ctx, canvasWidth, canvasHeight) {
+  drawBetModal(ctx, canvasWidth, canvasHeight) {
     const modalWidth = 320
     const modalHeight = 280
     const x = (canvasWidth - modalWidth) / 2
@@ -250,9 +376,9 @@ export default class GameInfo {
   /**
    * 绘制帮助弹窗
    */
-  drawHelpModal (ctx, canvasWidth, canvasHeight) {
+  drawHelpModal(ctx, canvasWidth, canvasHeight) {
     const modalWidth = 400
-    const modalHeight = 320
+    const modalHeight = 450
     const x = (canvasWidth - modalWidth) / 2
     const y = (canvasHeight - modalHeight) / 2
 
@@ -283,21 +409,25 @@ export default class GameInfo {
       ctx.fillStyle = '#e0e0e0'
       ctx.fillText(rule, x + 30, y + 80 + index * 30)
     })
+    // 计算关闭按钮位置并保存
+    const closeButton = this.uiPositions.helpModal.closeButton
+    closeButton.x = x + 100
+    closeButton.y = y + 240 + 100
 
-    // 关闭按钮
+    // 绘制关闭按钮
     ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
-    ctx.fillRect(x + 100, y + 240, modalWidth - 200, 40)
+    ctx.fillRect(closeButton.x, closeButton.y, closeButton.width, closeButton.height)
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
-    ctx.strokeRect(x + 100, y + 240, modalWidth - 200, 40)
+    ctx.strokeRect(closeButton.x, closeButton.y, closeButton.width, closeButton.height)
     ctx.fillStyle = '#ffffff'
     ctx.textAlign = 'center'
-    ctx.fillText('我明白了', canvasWidth / 2, y + 262)
+    ctx.fillText('我明白了', canvasWidth / 2, y + 262 + 100)
   }
 
   /**
    * 绘制结果弹窗
    */
-  drawResultModal (ctx, canvasWidth, canvasHeight) {
+  drawResultModal(ctx, canvasWidth, canvasHeight) {
     const modalWidth = 400
     const modalHeight = 400
     const x = (canvasWidth - modalWidth) / 2
@@ -355,7 +485,7 @@ export default class GameInfo {
   /**
    * 判断点是否在按钮内
    */
-  isPointInButton (x, y, button) {
+  isPointInButton(x, y, button) {
     return x >= button.x && x <= button.x + button.width &&
       y >= button.y && y <= button.y + button.height
   }
@@ -363,7 +493,7 @@ export default class GameInfo {
   /**
    * 处理菜单按钮点击
    */
-  handleMenuButtonClick (x, y) {
+  handleMenuButtonClick(x, y) {
     const menuButton = this.uiPositions.menuButton
     return this.isPointInButton(x, y, menuButton)
   }
@@ -371,7 +501,7 @@ export default class GameInfo {
   /**
    * 处理菜单弹窗点击
    */
-  handleMenuModalClick (x, y) {
+  handleMenuModalClick(x, y) {
     if (!this.uiPositions.menuModal.visible) return null
 
     const buttons = this.uiPositions.menuModal.buttons
@@ -379,7 +509,8 @@ export default class GameInfo {
     // 高亮选中的按钮
     if (this.isPointInButton(x, y, buttons.claim)) {
       this.selectedMenuItem = 'claim'
-      return 'claim'
+      // 只有可以领取时才返回'claim'
+      return this.canClaimPoints() ? 'claim' : null
     } else if (this.isPointInButton(x, y, buttons.start)) {
       this.selectedMenuItem = 'start'
       return 'start'
@@ -392,6 +523,9 @@ export default class GameInfo {
     } else if (this.isPointInButton(x, y, buttons.help)) {
       this.selectedMenuItem = 'help'
       return 'help'
+    } else if (this.isPointInButton(x, y, buttons.closeMenu)) {
+      this.selectedMenuItem = 'closeMenu'
+      return 'closeMenu'
     }
 
     this.selectedMenuItem = null
@@ -401,7 +535,7 @@ export default class GameInfo {
   /**
    * 处理助力弹窗点击
    */
-  handleBetModalClick (x, y, canvasWidth, canvasHeight) {
+  handleBetModalClick(x, y, canvasWidth, canvasHeight) {
     if (!this.uiPositions.betModal.visible) return null
 
     // 检查是否点击了积分选择按钮
@@ -428,7 +562,7 @@ export default class GameInfo {
   /**
    * 处理帮助弹窗点击
    */
-  handleHelpModalClick (x, y, canvasWidth, canvasHeight) {
+  handleHelpModalClick(x, y, canvasWidth, canvasHeight) {
     if (!this.uiPositions.helpModal.visible) return false
 
     const modalWidth = 400
@@ -444,7 +578,7 @@ export default class GameInfo {
   /**
    * 处理结果弹窗点击
    */
-  handleResultModalClick (x, y, canvasWidth, canvasHeight) {
+  handleResultModalClick(x, y, canvasWidth, canvasHeight) {
     if (!this.uiPositions.resultModal.visible) return false
 
     const modalWidth = 400
