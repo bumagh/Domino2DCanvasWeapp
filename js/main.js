@@ -1,20 +1,22 @@
-import './render';
+import './render.js';
 import DataBus from './databus.js'
 import Ball from './game/ball.js'
 import Obstacle from './game/obstacle.js'
 import Camera from './game/camera.js'
 import GameInfo from './game/gameinfo.js'
 import Background from './game/background.js'
-import { SCREEN_WIDTH, SCREEN_HEIGHT } from './render';
-import Guide from './game/guide.js'  // 导入新手引导
-const ctx = canvas.getContext('2d')
+import { SCREEN_WIDTH, SCREEN_HEIGHT } from './render.js';
+import Guide from './game/guide.js'
+import EventManager from './game/eventmanager.js'  // 导入事件管理器
 
+const ctx = canvas.getContext('2d')
 const databus = new DataBus()
 
 let gameInfo = null
 let background = null
 let camera = null
-let guide = null  // 新手引导实例
+let guide = null
+let eventManager = null  // 事件管理器实例
 let previewStartTime = 0
 const PREVIEW_DURATION = 5000
 
@@ -29,41 +31,45 @@ export default class Main {
   bg = null // 背景实例
   gameInfo = null // 游戏UI实例
   guide = null  // 新手引导
+  eventManager = null  // 事件管理器
+
   constructor() {
     this.init()
-    this.bindEvents()
     this.loop()
   }
-  // 在需要显示输入框的地方调用
-  showBetInput () {
-    this.inputManager.showInput('', (value) => {
-      const betAmount = parseInt(value)
-      if (betAmount && betAmount > 0) {
-        // 处理助力逻辑
-        this.confirmBet(betAmount)
-      }
-    })
-  }
+
   /**
    * 初始化游戏
    */
-  init () {
-    this.inputManager = new InputManager()
-
-    // 初始化数据总线
-    databus.reset()
-
+  init() {
     // 设置canvas尺寸
     canvas.width = SCREEN_WIDTH
     canvas.height = SCREEN_HEIGHT
+
+    // 初始化数据总线
+    databus.reset()
 
     // 初始化各模块
     databus.mapHeight = canvas.height * 10
     this.bg = new Background(canvas.width, canvas.height, databus.mapHeight)
     this.gameInfo = new GameInfo()
     camera = new Camera(canvas.width, canvas.height, databus.mapHeight)
+    
     // 初始化新手引导
     this.guide = new Guide()
+
+    const that = this;
+    // 初始化事件管理器
+    this.eventManager = new EventManager({
+      main: that,
+      canvas: canvas,
+      databus: databus,
+      gameInfo: that.gameInfo,
+      camera: camera,
+      guide: that.guide
+    });
+    
+    this.eventManager.init()
 
     // 检查是否需要显示引导
     if (!this.guide.hasCompleted()) {
@@ -73,6 +79,7 @@ export default class Main {
       console.log('新手引导已完成')
       this.guide.isActive = false;
     }
+
     // 初始化游戏对象
     this.initGameObjects()
   }
@@ -80,17 +87,19 @@ export default class Main {
   /**
    * 初始化游戏对象
    */
-  initGameObjects () {
+  initGameObjects() {
     // 初始化滚珠
     databus.balls = []
     const centerX = canvas.width / 2
     const ballCount = 4
     const baseSpacing = 80
     const randomOffsets = []
+    
     // 计算滚珠水平分布位置
-    const totalWidth = canvas.width * 0.8  // 使用80%的宽度空间
+    const totalWidth = canvas.width * 0.8
     const startX = (canvas.width - totalWidth) / 2
-    const spacing = totalWidth / (ballCount + 1)  // 平均分成5份，滚珠放在中间4个位置
+    const spacing = totalWidth / (ballCount + 1)
+    
     for (let i = 0; i < ballCount / 2; i++) {
       const offset = baseSpacing + Math.random() * 80
       randomOffsets.push(offset)
@@ -100,8 +109,8 @@ export default class Main {
       const isLeftSide = i % 2 === 0
       const pairIndex = Math.floor(i / 2)
       const offset = randomOffsets[pairIndex] || baseSpacing
-      // 计算滚珠的水平位置（平均分布）
       const x = startX + spacing * (i + 1)
+      
       const ball = new Ball(
         i,
         x,
@@ -111,13 +120,15 @@ export default class Main {
       )
       databus.balls.push(ball)
     }
+    
     // 默认选中第一个滚珠
     if (databus.balls.length > 0) {
       databus.selectedBall = databus.balls[0]
       databus.selectedBall.selected = true
-      databus.selectedBall.hasBet = false  // 确保初始状态没有助力
+      databus.selectedBall.hasBet = false
       console.log('默认选中滚珠:', databus.selectedBall.id)
     }
+
     // 初始化障碍物
     databus.obstacles = []
     const rows = 25
@@ -205,17 +216,9 @@ export default class Main {
   }
 
   /**
-   * 生成障碍物
-   */
-  obstacleGenerate () {
-    // 这里可以根据需要动态生成障碍物
-    // 当前版本使用静态障碍物，所以此方法暂时为空
-  }
-
-  /**
    * 碰撞检测
    */
-  collisionDetection () {
+  collisionDetection() {
     // 滚珠与障碍物碰撞检测
     databus.balls.forEach(ball => {
       if (ball.finished) return
@@ -229,7 +232,7 @@ export default class Main {
   /**
    * 边界碰撞检测
    */
-  boundaryDetection () {
+  boundaryDetection() {
     databus.balls.forEach(ball => {
       if (ball.finished) return
 
@@ -254,7 +257,7 @@ export default class Main {
   /**
    * 终点检测
    */
-  finishDetection () {
+  finishDetection() {
     databus.balls.forEach(ball => {
       if (ball.finished) return
 
@@ -273,7 +276,7 @@ export default class Main {
   /**
    * 游戏结束检查
    */
-  checkGameFinish () {
+  checkGameFinish() {
     const finishedBalls = databus.balls.filter(b => b.finished)
 
     if (finishedBalls.length === databus.balls.length && databus.gameState === 'running') {
@@ -301,8 +304,7 @@ export default class Main {
   /**
    * 更新游戏逻辑
    */
-  update () {
-
+  update() {
     // 如果引导正在显示，暂停游戏逻辑更新
     if (this.guide && this.guide.isActive) {
       // 引导期间只更新相机预览（如果有）
@@ -326,6 +328,7 @@ export default class Main {
       }
       return
     }
+
     if (databus.gameState === 'running') {
       // 更新滚珠物理状态
       databus.balls.forEach(ball => {
@@ -365,19 +368,10 @@ export default class Main {
 
   /**
    * canvas重绘函数
-   * 每一帧重新绘制所有的需要展示的元素
    */
-  render () {
-    // if (!ctx) {
-    //   console.error('ctx is null')
-    //   return
-    // }
-
-    // console.log('开始渲染，canvas尺寸:', canvas.width, 'x', canvas.height)
-    // console.log('相机偏移:', camera.offsetY)
-    // console.log('滚珠数量:', databus.balls.length)
-    // console.log('障碍物数量:', databus.obstacles.length)
-    ctx.clearRect(0, 0, canvas.width, canvas.height) // 清空画布
+  render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    
     // 绘制背景
     this.bg.render(ctx, camera.offsetY)
 
@@ -425,9 +419,9 @@ export default class Main {
     if (databus.gameState === 'preview') {
       this.drawPreviewInfo()
     }
+    
     // 绘制新手引导（如果有）
     if (this.guide && this.guide.isActive) {
-      // 准备引导需要的UI元素信息
       const uiElements = {
         menuButton: this.gameInfo.uiPositions.menuButton,
         menuModal: this.gameInfo.uiPositions.menuModal,
@@ -444,13 +438,12 @@ export default class Main {
         canvas.height
       )
     }
-
   }
 
   /**
- * 绘制预览状态提示信息
- */
-  drawPreviewInfo () {
+   * 绘制预览状态提示信息
+   */
+  drawPreviewInfo() {
     const elapsed = Date.now() - previewStartTime
     const remaining = Math.max(0, PREVIEW_DURATION - elapsed)
     const seconds = (remaining / 1000).toFixed(1)
@@ -490,10 +483,11 @@ export default class Main {
     ctx.lineWidth = 1
     ctx.strokeRect(barX, barY, barWidth, barHeight)
   }
+
   /**
    * 游戏主循环
    */
-  loop () {
+  loop() {
     this.update() // 更新游戏逻辑
     this.render() // 渲染游戏画面
 
@@ -502,249 +496,9 @@ export default class Main {
   }
 
   /**
-   * 绑定事件
-   */
-  // 修改 bindEvents 方法中的触摸事件处理
-  bindEvents () {
-    wx.onTouchStart((e) => {
-      const x = e.touches[0].clientX
-      const y = e.touches[0].clientY
-
-      // 如果引导正在显示，优先处理引导点击
-      if (this.guide && this.guide.isActive) {
-
-        // 检查是否点击了引导的下一步按钮
-        if (this.guide.isPointInGuideButton(x, y)) {
-          const step = this.guide.getCurrentStep()
-
-          // 特殊处理最后一步
-          if (step.id === 6) {
-            this.guide.complete()
-            return
-          }
-
-          this.guide.next()
-          return
-        }
-
-        // 根据当前引导步骤处理其他点击
-        const step = this.guide.getCurrentStep()
-
-        switch (step.id) {
-          case 1: // 欢迎界面，点击任意位置继续
-            this.guide.next()
-            return
-
-          case 2: // 选择滚珠
-            // 检查是否点击了滚珠
-            const worldY = camera ? y + camera.offsetY : y
-            let ballClicked = false
-            databus.balls.forEach(ball => {
-              if (ball.isPointInside(x, worldY)) {
-                databus.selectedBall = ball
-                ball.selected = true
-                ballClicked = true
-
-                // 滚珠选择完成，进入下一步
-                setTimeout(() => {
-                  this.guide.next()
-                }, 300)
-              } else {
-                ball.selected = false
-              }
-            })
-
-            if (ballClicked) return
-            break
-
-          case 3: // 点击菜单按钮
-            if (this.gameInfo.handleMenuButtonClick(x, y)) {
-              this.toggleMenuModal()
-
-              // 菜单打开后，进入下一步
-              setTimeout(() => {
-                this.guide.next()
-              }, 300)
-              return
-            }
-            break
-
-          case 4: // 点击开始按钮
-            if (this.gameInfo.uiPositions.menuModal.visible) {
-              const menuAction = this.gameInfo.handleMenuModalClick(x, y)
-              if (menuAction === 'start') {
-                this.handleMenuAction(menuAction)
-
-                // 开始游戏后，进入下一步
-                setTimeout(() => {
-                  this.guide.next()
-                }, 500)
-                return
-              }
-            }
-            break
-
-          case 5: // 助力选择弹窗
-            // 这里不处理点击，等弹窗自动显示后引导下一步
-            break
-        }
-
-        // 引导期间阻止其他操作
-        return
-      }
-      // 处理UI按钮点击
-      if (this.gameInfo.handleMenuButtonClick(x, y) && databus.gameState == 'idle') {
-        this.toggleMenuModal()
-
-      }
-      if (this.gameInfo.uiPositions.menuModal.visible && databus.gameState == 'idle') {
-        const menuAction = this.gameInfo.handleMenuModalClick(x, y)
-        this.handleButtonAction(menuAction)
-
-      }
-      // 处理助力模态框点击
-      if (this.gameInfo.uiPositions.betModal.visible) {
-        const betAction = this.gameInfo.handleBetModalClick(x, y, canvas.width, canvas.height)
-        if (betAction) {
-          if (betAction.type === 'bet') {
-            this.confirmBet(betAction.amount)
-          } else if (betAction.type === 'cancel') {
-            this.cancelBet()
-          }
-          return
-        }
-      }
-
-      if (this.gameInfo.uiPositions.helpModal.visible) {
-        if (this.isPointInHelpModalClose(x, y)) {
-          this.gameInfo.uiPositions.helpModal.visible = false
-        }
-        return
-      }
-
-      if (this.gameInfo.uiPositions.resultModal.visible) {
-        if (this.isPointInResultModalButton(x, y)) {
-          this.restartGame()
-        }
-        return
-      }
-
-      // 处理滚珠选择
-      if (databus.gameState === 'idle' || databus.gameState === 'betting') {
-        const worldY = y + camera.offsetY
-        // 检查是否点击了滚珠
-        let clickedBall = null
-        databus.balls.forEach(ball => {
-          if (ball.isPointInside(x, worldY)) {
-            clickedBall = ball
-          }
-        })
-
-        // 如果点击了滚珠
-        if (clickedBall) {
-          // 如果点击的是已经选中的滚珠，不执行任何操作（保持选中）
-          if (databus.selectedBall && databus.selectedBall.id === clickedBall.id) {
-            console.log('重复点击已选中的滚珠:', clickedBall.id)
-            return
-          }
-
-          // 取消之前选中的滚珠
-          databus.balls.forEach(ball => {
-            ball.selected = false
-          })
-
-          // 设置新选中的滚珠
-          databus.selectedBall = clickedBall
-          clickedBall.selected = true
-        }
-      }
-    })
-  }
-
-  /**
-   * 处理按钮点击
-   */
-  handleButtonAction (action) {
-    switch (action) {
-      case 'claim':
-        this.claimPoints()
-        break
-      case 'help':
-        this.gameInfo.uiPositions.helpModal.visible = true
-        break
-      case 'start':
-        this.startBetting()
-        break
-      case 'pause':
-        if (databus.gameState === 'running') {
-          databus.gameState = 'paused'
-        } else if (databus.gameState === 'paused') {
-          databus.gameState = 'running'
-        }
-        break
-      case 'restart':
-        this.restartGame()
-        break
-    }
-  }
-
-  /**
-   * 处理助力模态框点击
-   */
-  handleBetModalClick (x, y, canvasWidth, canvasHeight) {
-    const modalWidth = 320
-    const modalHeight = 200
-    const modalX = (canvasWidth - modalWidth) / 2
-    const modalY = (canvasHeight - modalHeight) / 2
-
-    // 确认按钮
-    if (x >= modalX + 60 && x <= modalX + 140 &&
-      y >= modalY + 140 && y <= modalY + 180) {
-      this.confirmBet()
-    }
-    // 取消按钮
-    else if (x >= modalX + 180 && x <= modalX + 260 &&
-      y >= modalY + 140 && y <= modalY + 180) {
-      this.cancelBet()
-      // 关闭键盘
-      this.gameInfo.closeInputBox()
-    }
-  }
-
-  /**
-   * 判断是否点击帮助模态框关闭按钮
-   */
-  isPointInHelpModalClose (x, y) {
-    const modalWidth = 400
-    const modalHeight = 320
-    const modalX = (canvas.width - modalWidth) / 2
-    const modalY = (canvas.height - modalHeight) / 2
-
-    return x >= modalX + 100 && x <= modalX + 300 &&
-      y >= modalY + 240 && y <= modalY + 280
-  }
-
-  /**
-   * 判断是否点击结果模态框按钮
-   */
-  isPointInResultModalButton (x, y) {
-    const modalWidth = 400
-    const modalHeight = 400
-    const modalX = (canvas.width - modalWidth) / 2
-    const modalY = (canvas.height - modalHeight) / 2
-
-    return x >= modalX + 100 && x <= modalX + 300 &&
-      y >= modalY + 320 && y <= modalY + 370
-  }
-
-
-
-  // 修改 startMapPreview 方法
-
-  /**
    * 开始地图预览
    */
-  startMapPreview () {
+  startMapPreview() {
     databus.gameState = 'preview'
     previewStartTime = Date.now()
 
@@ -758,8 +512,7 @@ export default class Main {
   /**
    * 确认助力
    */
-  // 修改 confirmBet 方法，接受金额参数
-  confirmBet (betAmount) {
+  confirmBet(betAmount) {
     console.log('确认助力: 滚珠', databus.selectedBall.id, '积分', betAmount)
 
     if (!databus.selectedBall) {
@@ -814,63 +567,19 @@ export default class Main {
     })
   }
 
-  // 修改 cancelBet 方法
-  cancelBet () {
+  /**
+   * 取消助力
+   */
+  cancelBet() {
     this.gameInfo.uiPositions.betModal.visible = false
     databus.gameState = 'idle'
-  }
-
-
-  /**
-   * 切换菜单弹窗显示/隐藏
-   */
-  toggleMenuModal () {
-    this.gameInfo.uiPositions.menuModal.visible = !this.gameInfo.uiPositions.menuModal.visible
-
-    // 关闭其他弹窗
-    this.gameInfo.uiPositions.betModal.visible = false
-    this.gameInfo.uiPositions.helpModal.visible = false
-  }
-
-  /**
-   * 关闭所有弹窗
-   */
-  closeAllModals () {
-    this.gameInfo.uiPositions.menuModal.visible = false
-    this.gameInfo.uiPositions.betModal.visible = false
-    this.gameInfo.uiPositions.helpModal.visible = false
-    this.gameInfo.selectedMenuItem = null
-  }
-
-  /**
-   * 处理菜单动作
-   */
-  handleMenuAction (action) {
-    this.closeAllModals()
-
-    switch (action) {
-      case 'claim':
-        this.claimPoints()
-        break
-      case 'start':
-        this.startBetting()
-        break
-      case 'pause':
-        this.togglePause()
-        break
-      case 'restart':
-        this.restartGame()
-        break
-      case 'help':
-        this.gameInfo.uiPositions.helpModal.visible = true
-        break
-    }
+    this.restartGame();
   }
 
   /**
    * 切换暂停/继续
    */
-  togglePause () {
+  togglePause() {
     if (databus.gameState === 'running') {
       databus.gameState = 'paused'
       wx.showToast({
@@ -889,7 +598,7 @@ export default class Main {
   /**
    * 开始助力流程
    */
-  startBetting () {
+  startBetting() {
     if (databus.gameState === 'idle') {
       if (!databus.selectedBall) {
         wx.showToast({
@@ -912,10 +621,11 @@ export default class Main {
       this.startMapPreview()
     }
   }
+
   /**
    * 领取积分
    */
-  claimPoints () {
+  claimPoints() {
     const currentTime = Date.now()
     if (currentTime - databus.lastClaimTime < databus.claimCooldown) {
       wx.showToast({
@@ -933,7 +643,7 @@ export default class Main {
   /**
    * 重新开始游戏
    */
-  restartGame () {
+  restartGame() {
     databus.gameState = 'idle'
     databus.selectedBall = null
     databus.betAmount = 0
@@ -954,13 +664,14 @@ export default class Main {
   }
 }
 
+// InputManager 类保持不变
 class InputManager {
   constructor() {
     this.isKeyboardShowing = false
     this.currentValue = ''
   }
 
-  showInput (initialValue = '', callback) {
+  showInput(initialValue = '', callback) {
     wx.showKeyboard({
       defaultValue: initialValue,
       maxLength: 10,
@@ -986,7 +697,7 @@ class InputManager {
     })
   }
 
-  hideInput () {
+  hideInput() {
     this.isKeyboardShowing = false
     wx.hideKeyboard()
     wx.offKeyboardInput()
