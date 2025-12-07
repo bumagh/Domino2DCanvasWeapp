@@ -29,7 +29,6 @@ export default class EventManager {
         wx.offTouchStart();
 
         // 绑定新的事件监听器
-        wx.onTouchStart(this.handleTouchStart);
 
         console.log('事件管理器初始化完成');
         // 初始化激励视频广告
