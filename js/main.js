@@ -42,6 +42,18 @@ export default class Main {
    * 初始化游戏
    */
   init() {
+    // 最简化转发功能（只需这3行）
+    wx.showShareMenu({
+      withShareTicket: true,
+      menus: ['shareAppMessage', 'shareTimeline']
+    })
+
+    // 设置默认分享内容
+    wx.onShareAppMessage(() => {
+      return {
+        title: '一起来玩多米诺滚珠大赛！'
+      }
+    })
     // 设置canvas尺寸
     canvas.width = SCREEN_WIDTH
     canvas.height = SCREEN_HEIGHT
@@ -139,17 +151,17 @@ export default class Main {
     for (let i = 0; i < rows; i++) {
       const y = startY + i * rowSpacing
       const width = canvas.width * 0.45
-    
+
       // 确保角度大于30度且小于150度
       const angleBase = 60 * (Math.PI / 180) // 从45度改为60度作为基准
       const angleVariation = (Math.sin(i * 0.8) * 30) * (Math.PI / 180) // 增加变化范围到±30度
-      
+
       // 计算基础角度并确保在30-150度范围内
       let baseAngle = angleBase + angleVariation
-      
+
       // 转换到0-180度范围
       let angleDeg = baseAngle * (180 / Math.PI)
-      
+
       // 调整角度确保在30-150度范围内
       if (angleDeg < 30) {
         angleDeg = 30 + Math.random() * 10
@@ -159,17 +171,17 @@ export default class Main {
         // 避免太接近垂直（85-95度），稍微偏移
         angleDeg = 90 + (Math.random() > 0.5 ? 10 : -10)
       }
-      
+
       // 确保角度在30-150度范围内
       angleDeg = Math.max(30, Math.min(70, angleDeg))
-      
+
       // 重新转换为弧度
       const finalAngle = angleDeg * (Math.PI / 180)
-      
+
       // 随机选择颜色
       const colorIndex = i % OBSTACLE_COLORS.length
       const obstacleColor = OBSTACLE_COLORS[colorIndex]
-    
+
       // 两侧障碍物
       databus.obstacles.push(new Obstacle(
         width * 0.1,
@@ -180,7 +192,7 @@ export default class Main {
         0.9,
         obstacleColor
       ))
-    
+
       databus.obstacles.push(new Obstacle(
         canvas.width - width * 0.1,
         y,
@@ -190,12 +202,12 @@ export default class Main {
         0.9,
         obstacleColor
       ))
-    
+
       // 中间障碍物
       if (i % 3 === 1) {
         // 中间障碍物角度也在30-150度范围内，避免水平
         let centerAngleDeg = 30 + Math.random() * 120 // 30-150度
-        
+
         // 避免太接近水平或垂直
         if (centerAngleDeg < 35) centerAngleDeg = 35
         if (centerAngleDeg > 145) centerAngleDeg = 145
@@ -203,11 +215,11 @@ export default class Main {
           // 如果太接近垂直，偏移到60-70度或110-120度
           centerAngleDeg = 90 + (Math.random() > 0.5 ? 25 : -25)
         }
-        
+
         const centerAngle = centerAngleDeg * (Math.PI / 180)
         const centerWidth = 80 + Math.random() * 60
         const centerColor = OBSTACLE_COLORS[(colorIndex + 2) % OBSTACLE_COLORS.length]
-    
+
         databus.obstacles.push(new Obstacle(
           centerX,
           y + rowSpacing * 0.5,
