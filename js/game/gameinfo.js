@@ -11,13 +11,24 @@ export default class GameInfo {
 
     // 可选择的积分选项
     this.betOptions = [1, 2, 4, 8]
-
+    // 广告奖励积分
+    this.adRewardAmount = 8
+    this.isAdLoading = false
+    this.lastAdTime = 0
+    this.adCooldown = 30000 // 30秒冷却
     // UI元素位置
     this.uiPositions = {
       // 状态栏（只显示积分）
-      score: { x: 200, y: 80 },
+      score: { x: 200, y: 120 },
       menuButton: { x: 20, y: 50, width: 80, height: 40 },
-
+      adButton: {
+        x: 130,  // 在菜单按钮左边
+        y: 50,
+        width: 140,
+        height: 40,
+        text: '看广告得积分',
+        visible: true
+      },
       // 菜单弹窗
       menuModal: {
         visible: false,
@@ -192,8 +203,61 @@ export default class GameInfo {
     if (this.uiPositions.resultModal.visible) {
       this.drawResultModal(ctx, canvasWidth, canvasHeight)
     }
+    // 绘制广告按钮
+    if (this.uiPositions.adButton.visible) {
+      ctx.fillStyle = this.isAdLoading ? '#999' : '#ff9900'
+      ctx.fillRect(
+        this.uiPositions.adButton.x,
+        this.uiPositions.adButton.y,
+        this.uiPositions.adButton.width,
+        this.uiPositions.adButton.height
+      )
+
+      ctx.strokeStyle = '#ffffff'
+      ctx.lineWidth = 2
+      ctx.strokeRect(
+        this.uiPositions.adButton.x,
+        this.uiPositions.adButton.y,
+        this.uiPositions.adButton.width,
+        this.uiPositions.adButton.height
+      )
+      ctx.fillStyle = '#ffffff'
+      ctx.font = '12px Arial'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+
+      // 直接将完整文本绘制在按钮中心，不分行
+      ctx.fillText(
+        this.uiPositions.adButton.text,
+        this.uiPositions.adButton.x + this.uiPositions.adButton.width / 2,
+        this.uiPositions.adButton.y + this.uiPositions.adButton.height / 2
+      )
+
+
+      // 显示冷却时间
+      if (this.isAdCoolingDown()) {
+        const remainingTime = Math.ceil((this.adCooldown - (Date.now() - this.lastAdTime)) / 1000)
+        ctx.fillStyle = '#ff0000'
+        ctx.font = 'bold 14px Arial'
+        ctx.fillText(
+          `${remainingTime}s`,
+          this.uiPositions.adButton.x + this.uiPositions.adButton.width / 2,
+          this.uiPositions.adButton.y + 50
+        )
+      }
+    }
+  }
+  isAdCoolingDown() {
+    return Date.now() - this.lastAdTime < this.adCooldown && this.lastAdTime > 0
   }
 
+  startAdCooldown() {
+    this.lastAdTime = Date.now()
+  }
+
+  canWatchAd() {
+    return !this.isAdLoading && !this.isAdCoolingDown()
+  }
   /**
    * 绘制按钮
    */

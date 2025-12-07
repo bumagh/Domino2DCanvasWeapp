@@ -15,7 +15,10 @@ export default class EventManager {
         this.guide = mainInstance.guide; // 新手引导实例
 
         // 绑定方法的this上下文
-        this.handleTouchStart = this.handleTouchStart.bind(this);
+        // this.handleTouchStart = this.handleTouchStart.bind(this);
+        // ... 原有代码 ...
+        this.videoAd = null // 激励视频广告实例
+        this.touchStartHandler = this.handleTouchStart.bind(this) // 绑定this
     }
 
     /**
@@ -29,8 +32,116 @@ export default class EventManager {
         wx.onTouchStart(this.handleTouchStart);
 
         console.log('事件管理器初始化完成');
-    }
+        // 初始化激励视频广告
+        this.initRewardedVideoAd()
 
+        // 微信小游戏触摸事件监听
+        wx.onTouchStart(this.touchStartHandler)
+    }
+    initRewardedVideoAd() {
+        // 创建激励视频广告实例
+        if (wx.createRewardedVideoAd) {
+            this.videoAd = wx.createRewardedVideoAd({
+                adUnitId: 'adunit-6ff1555f4a0af86e'
+            })
+
+            // 监听广告加载
+            this.videoAd.onLoad(() => {
+                console.log('激励视频广告加载成功')
+                this.gameInfo.isAdLoading = false
+            })
+
+            // 监听广告错误
+            this.videoAd.onError((err) => {
+                console.error('激励视频广告加载失败', err)
+                this.gameInfo.isAdLoading = false
+                wx.showToast({
+                    title: '广告加载失败，请稍后重试',
+                    icon: 'none'
+                })
+            })
+
+            // 监听广告关闭
+            this.videoAd.onClose((res) => {
+                if (res && res.isEnded) {
+                    // 正常播放结束，发放奖励
+                    this.handleAdReward()
+                } else {
+                    // 用户中途关闭
+                    wx.showToast({
+                        title: '未完整观看，无法获得奖励',
+                        icon: 'none'
+                    })
+                }
+            })
+        }
+    }
+    checkAdButtonClick(x, y) {
+        const adButton = this.gameInfo.uiPositions.adButton
+        if (!adButton || !adButton.visible) return false
+
+        return x >= adButton.x &&
+            x <= adButton.x + adButton.width &&
+            y >= adButton.y &&
+            y <= adButton.y + adButton.height
+    }
+    handleAdButtonClick() {
+        if (!this.gameInfo.canWatchAd()) {
+            if (this.gameInfo.isAdCoolingDown()) {
+                const remainingTime = Math.ceil((this.gameInfo.adCooldown - (Date.now() - this.gameInfo.lastAdTime)) / 1000)
+                wx.showToast({
+                    title: `请等待${remainingTime}秒后再观看广告`,
+                    icon: 'none'
+                })
+            }
+            return
+        }
+
+        if (!this.videoAd) {
+            wx.showToast({
+                title: '广告功能暂不可用',
+                icon: 'none'
+            })
+            return
+        }
+
+        // 标记广告加载中
+        this.gameInfo.isAdLoading = true
+
+        // 显示广告
+        this.videoAd.show().catch(() => {
+            // 失败重试，先加载广告
+            this.videoAd.load()
+                .then(() => {
+                    this.videoAd.show()
+                })
+                .catch(err => {
+                    console.error('激励视频广告显示失败', err)
+                    this.gameInfo.isAdLoading = false
+                    wx.showToast({
+                        title: '广告加载失败，请稍后重试',
+                        icon: 'none'
+                    })
+                })
+        })
+    }
+    handleAdReward() {
+        const rewardAmount = this.gameInfo.adRewardAmount
+        this.databus.score += rewardAmount
+        this.gameInfo.score = this.databus.score
+
+        // 启动冷却
+        this.gameInfo.startAdCooldown()
+
+        wx.showToast({
+            title: `观看广告成功，获得${rewardAmount}积分`,
+            icon: 'success',
+            duration: 2000
+        })
+
+        // 可以添加额外的动画效果
+        // this.showRewardAnimation(rewardAmount)
+    }
     /**
      * 处理触摸开始事件
      */
@@ -43,7 +154,11 @@ export default class EventManager {
             this.handleGuideClick(x, y);
             return;
         }
-
+        // 检查是否点击了广告按钮
+        if (this.checkAdButtonClick(x, y)) {
+            this.handleAdButtonClick()
+            return
+        }
         // 处理UI按钮点击
         if (this.gameInfo.handleMenuButtonClick(x, y)) {
             this.toggleMenuModal();
