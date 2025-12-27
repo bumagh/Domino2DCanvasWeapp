@@ -316,9 +316,9 @@ export default class Main {
       // 计算奖励
       const playerRank = finishedBalls.findIndex(b => b.id === databus.selectedBall?.id) + 1
       if (playerRank === 1) {
-        databus.score += databus.betAmount * 4
-      } else if (playerRank === 2) {
         databus.score += databus.betAmount * 2
+      } else if (playerRank === 2) {
+        databus.score += databus.betAmount
       }
 
       this.gameInfo.score = databus.score
