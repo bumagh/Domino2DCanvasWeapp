@@ -24,24 +24,15 @@ export default class Guide {
             },
             {
                 id: 3,
-                title: '打开游戏菜单',
-                content: '点击右上角的菜单按钮打开游戏菜单',
-                target: 'menuButton',
+                title: '开始游戏',
+                content: '点击"开始游戏"按钮，\n开始预览赛道并选择助力积分',
+                target: 'startGameButton',
                 position: 'bottom',
                 arrow: 'right',
                 nextText: '下一步'
             },
             {
                 id: 4,
-                title: '开始游戏',
-                content: '点击"开始游戏"按钮，\n开始预览赛道并选择助力积分',
-                target: 'startButton',
-                position: 'bottom',
-                arrow: 'right',
-                nextText: '下一步'
-            },
-            {
-                id: 5,
                 title: '选择助力积分',
                 content: '选择你想要投入的积分，\n积分越高奖励越大',
                 target: 'betModal',
@@ -50,9 +41,9 @@ export default class Guide {
                 nextText: '明白了'
             },
             {
-                id: 6,
+                id: 5,
                 title: '游戏规则',
-                content: '滚珠到达终点后根据排名获得奖励：\n第1名：4倍积分\n第2名：2倍积分\n其他：失去积分',
+                content: '滚珠到达终点后根据排名获得奖励：\n第1名：2倍积分\n第2名：1倍积分\n其他：失去积分',
                 target: null,
                 position: 'center',
                 arrow: null,
@@ -190,7 +181,7 @@ export default class Guide {
         ctx.save()
 
         // 整个画布半透明黑色遮罩
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.33)'
         ctx.fillRect(0, 0, canvasWidth, canvasHeight)
 
         // 根据步骤创建高亮区域（挖空效果）
@@ -207,9 +198,9 @@ export default class Guide {
             const btn = uiElements.menuButton
             this.drawRoundedRect(ctx, btn.x, btn.y, btn.width, btn.height, this.cutoutRadius)
             ctx.fill()
-        } else if (step.target === 'startButton' && uiElements?.menuModal?.visible && uiElements.menuModal?.buttons?.start) {
+        } else if (step.target === 'startGameButton') {
             // 高亮开始按钮
-            const btn = uiElements.menuModal.buttons.start
+            const btn = uiElements?.startGameButton;
             this.drawRoundedRect(ctx, btn.x, btn.y, btn.width, btn.height, this.cutoutRadius)
             ctx.fill()
         } else if (step.target === 'betModal' && uiElements?.betModal?.visible) {
@@ -275,9 +266,9 @@ export default class Guide {
             if (step.arrow === 'right') {
                 this.drawArrow(ctx, btn.x + btn.width + 20, btn.y + btn.height / 2, 'right')
             }
-        } else if (step.target === 'startButton' && uiElements?.menuModal?.visible && uiElements.menuModal?.buttons?.start) {
+        } else if (step.target === 'startGameButton' && uiElements?.startGameButton) {
             // 高亮开始按钮
-            const btn = uiElements.menuModal.buttons.start
+            const btn = uiElements.startGameButton
             this.drawRoundedRect(ctx, btn.x, btn.y, btn.width, btn.height, this.cutoutRadius)
             ctx.stroke()
         } else if (step.target === 'betModal' && uiElements?.betModal?.visible) {

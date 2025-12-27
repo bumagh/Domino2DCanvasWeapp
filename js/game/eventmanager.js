@@ -14,30 +14,55 @@ export default class EventManager {
         this.camera = mainInstance.camera; // 相机实例
         this.guide = mainInstance.guide; // 新手引导实例
 
+        // 子游戏（可选）
+        this.subGame = null
+
         // 绑定方法的this上下文
         // this.handleTouchStart = this.handleTouchStart.bind(this);
         // ... 原有代码 ...
         this.videoAd = null // 激励视频广告实例
+        this.interstitialAd = null
         this.touchStartHandler = this.handleTouchStart.bind(this) // 绑定this
+        // 定义插屏广告
+
+
+    }
+    setSubGame (subGameInstance) {
+        this.subGame = subGameInstance
     }
 
     /**
      * 初始化事件监听
      */
-    init() {
+    init () {
         // 移除旧的事件监听器（如果有）
         wx.offTouchStart();
 
-        // 绑定新的事件监听器
+        // 只注册一次，并确保回调 this 已绑定
+        wx.onTouchStart(this.touchStartHandler)
 
         console.log('事件管理器初始化完成');
         // 初始化激励视频广告
         this.initRewardedVideoAd()
-
-        // 微信小游戏触摸事件监听
-        wx.onTouchStart(this.touchStartHandler)
+        this.initInterstitialAd()
     }
-    initRewardedVideoAd() {
+    initInterstitialAd () {
+        // 创建插屏广告实例，提前初始化
+        if (wx.createInterstitialAd) {
+            this.interstitialAd = wx.createInterstitialAd({
+                adUnitId: 'adunit-fcad3142b45b5aa6'
+            })
+            this.interstitialAd.onLoad(() => {
+                console.log('插屏 广告加载成功')
+            })
+            this.interstitialAd.onError(() => {
+                console.log('插屏 广告加载失败')
+            })
+        }
+    }
+
+
+    initRewardedVideoAd () {
         // 创建激励视频广告实例
         if (wx.createRewardedVideoAd) {
             this.videoAd = wx.createRewardedVideoAd({
@@ -48,6 +73,7 @@ export default class EventManager {
             this.videoAd.onLoad(() => {
                 console.log('激励视频广告加载成功')
                 this.gameInfo.isAdLoading = false
+                this.gameInfo.uiPositions.adButton.visible = true
             })
 
             // 监听广告错误
@@ -58,6 +84,8 @@ export default class EventManager {
                     title: '广告加载失败，请稍后重试',
                     icon: 'none'
                 })
+                this.gameInfo.uiPositions.adButton.visible = true
+
             })
 
             // 监听广告关闭
@@ -75,16 +103,8 @@ export default class EventManager {
             })
         }
     }
-    checkAdButtonClick(x, y) {
-        const adButton = this.gameInfo.uiPositions.adButton
-        if (!adButton || !adButton.visible) return false
 
-        return x >= adButton.x &&
-            x <= adButton.x + adButton.width &&
-            y >= adButton.y &&
-            y <= adButton.y + adButton.height
-    }
-    handleAdButtonClick() {
+    handleAdButtonClick () {
         if (!this.gameInfo.canWatchAd()) {
             if (this.gameInfo.isAdCoolingDown()) {
                 const remainingTime = Math.ceil((this.gameInfo.adCooldown - (Date.now() - this.gameInfo.lastAdTime)) / 1000)
@@ -124,7 +144,7 @@ export default class EventManager {
                 })
         })
     }
-    handleAdReward() {
+    handleAdReward () {
         const rewardAmount = this.gameInfo.adRewardAmount
         this.databus.score += rewardAmount
         this.gameInfo.score = this.databus.score
@@ -141,10 +161,25 @@ export default class EventManager {
         // 可以添加额外的动画效果
         // this.showRewardAnimation(rewardAmount)
     }
+    checkAdButtonClick (x, y) {
+        const adButton = this.gameInfo.uiPositions.adButton
+        if (!adButton || !adButton.visible) return false
+
+        return x >= adButton.x &&
+            x <= adButton.x + adButton.width &&
+            y >= adButton.y &&
+            y <= adButton.y + adButton.height
+    }
     /**
      * 处理触摸开始事件
      */
-    handleTouchStart(e) {
+    handleTouchStart (e) {
+        // 子游戏优先处理触摸
+        if (this.subGame && typeof this.subGame.onTouchStart === 'function') {
+            this.subGame.onTouchStart(e)
+            return
+        }
+
         const x = e.touches[0].clientX;
         const y = e.touches[0].clientY;
 
@@ -163,7 +198,14 @@ export default class EventManager {
             this.toggleMenuModal();
             return;
         }
-
+        if (this.gameInfo.handleStartGameButtonClick(x, y) && (this.databus.gameState === 'idle' || this.guide.getCurrentStep().id === 3)) {
+            this.main.startBetting();
+            return;
+        }
+        if (this.gameInfo.handleAwesomeCatGameButtonClick(x, y) && (this.databus.gameState === 'idle')) {
+            this.main.startAwesomeCatGame();
+            return;
+        }
         // 处理菜单弹窗点击
         if (this.gameInfo.uiPositions.menuModal.visible && this.gameInfo.uiPositions.helpModal.visible == false) {
             const menuAction = this.gameInfo.handleMenuModalClick(x, y);
@@ -193,7 +235,21 @@ export default class EventManager {
         // 处理结果弹窗点击
         if (this.gameInfo.uiPositions.resultModal.visible) {
             if (this.isPointInResultModalButton(x, y)) {
-                this.main.restartGame();
+                // 在适合的场景显示插屏广告
+                if (this.interstitialAd) {
+                    this.interstitialAd.show().catch((err) => {
+                        console.error('插屏广告显示失败', err)
+                        this.main.restartGame();
+
+                    })
+                    this.interstitialAd.onClose(res => {
+                        this.main.restartGame();
+                        console.log('插屏 广告关闭')
+                    })
+                } else {
+                    this.main.restartGame();
+
+                }
             }
             return;
         }
@@ -207,13 +263,13 @@ export default class EventManager {
     /**
      * 处理引导期间的点击
      */
-    handleGuideClick(x, y) {
+    handleGuideClick (x, y) {
         // 检查是否点击了引导的下一步按钮
         if (this.guide.isPointInGuideButton(x, y)) {
             const step = this.guide.getCurrentStep();
 
             // 特殊处理最后一步
-            if (step.id === 6) {
+            if (step.id === 5) {
                 this.guide.complete();
                 return;
             }
@@ -235,11 +291,11 @@ export default class EventManager {
                 return;
 
             case 3: // 点击菜单按钮
-                this.handleGuideMenuClick(x, y);
+                this.handleGuideStartGameClick(x, y);
                 return;
 
             case 4: // 点击开始按钮
-                this.handleGuideStartClick(x, y);
+                // this.handleGuideStartGameClick(x, y);
                 return;
 
             case 5: // 助力选择弹窗
@@ -254,7 +310,7 @@ export default class EventManager {
     /**
      * 引导期间的滚珠选择
      */
-    handleGuideBallSelection(x, y) {
+    handleGuideBallSelection (x, y) {
         const worldY = this.camera ? y + this.camera.offsetY : y;
         let ballClicked = false;
 
@@ -279,7 +335,7 @@ export default class EventManager {
     /**
      * 引导期间的菜单点击
      */
-    handleGuideMenuClick(x, y) {
+    handleGuideMenuClick (x, y) {
         if (this.gameInfo.handleMenuButtonClick(x, y)) {
             this.toggleMenuModal();
 
@@ -292,9 +348,23 @@ export default class EventManager {
     }
 
     /**
+   * 引导期间的快速开始游戏按钮点击
+   */
+    handleGuideStartGameClick (x, y) {
+        if (this.gameInfo.handleStartGameButtonClick(x, y) && this.databus.gameState === 'idle') {
+            this.main.startBetting();
+
+            // 菜单打开后，进入下一步
+            setTimeout(() => {
+                this.guide.next();
+            }, 300);
+            return;
+        }
+    }
+    /**
      * 引导期间的开始按钮点击
      */
-    handleGuideStartClick(x, y) {
+    handleGuideStartClick (x, y) {
         if (this.gameInfo.uiPositions.menuModal.visible) {
             const menuAction = this.gameInfo.handleMenuModalClick(x, y);
             if (menuAction === 'start') {
@@ -312,7 +382,7 @@ export default class EventManager {
     /**
      * 处理滚珠选择
      */
-    handleBallSelection(x, y) {
+    handleBallSelection (x, y) {
         const worldY = y + (this.camera ? this.camera.offsetY : 0);
 
         // 检查是否点击了滚珠
@@ -345,7 +415,7 @@ export default class EventManager {
     /**
      * 处理按钮动作
      */
-    handleButtonAction(action) {
+    handleButtonAction (action) {
         switch (action) {
             case 'claim':
                 this.main.claimPoints();
@@ -372,7 +442,7 @@ export default class EventManager {
     /**
      * 处理助力动作
      */
-    handleBetAction(betAction) {
+    handleBetAction (betAction) {
         if (betAction.type === 'bet') {
             this.main.confirmBet(betAction.amount);
         } else if (betAction.type === 'cancel') {
@@ -383,7 +453,7 @@ export default class EventManager {
     /**
      * 处理菜单动作
      */
-    handleMenuAction(action) {
+    handleMenuAction (action) {
         this.closeAllModals();
 
         switch (action) {
@@ -408,7 +478,7 @@ export default class EventManager {
     /**
      * 切换菜单弹窗显示/隐藏
      */
-    toggleMenuModal() {
+    toggleMenuModal () {
         this.gameInfo.uiPositions.menuModal.visible = !this.gameInfo.uiPositions.menuModal.visible;
 
         // 关闭其他弹窗
@@ -419,7 +489,7 @@ export default class EventManager {
     /**
      * 关闭所有弹窗
      */
-    closeAllModals() {
+    closeAllModals () {
         this.gameInfo.uiPositions.menuModal.visible = false;
         this.gameInfo.uiPositions.betModal.visible = false;
         this.gameInfo.uiPositions.helpModal.visible = false;
@@ -429,7 +499,7 @@ export default class EventManager {
     /**
      * 判断是否点击帮助弹窗关闭按钮
      */
-    isPointInHelpModalClose(x, y) {
+    isPointInHelpModalClose (x, y) {
         if (!this.main.gameInfo.uiPositions.helpModal.visible) return false
 
         const closeButton = this.main.gameInfo.uiPositions.helpModal.closeButton
@@ -438,7 +508,7 @@ export default class EventManager {
     /**
      * 判断是否点击结果弹窗按钮
      */
-    isPointInResultModalButton(x, y) {
+    isPointInResultModalButton (x, y) {
         const modalWidth = 400;
         const modalHeight = 400;
         const modalX = (SCREEN_WIDTH - modalWidth) / 2;

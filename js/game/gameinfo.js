@@ -21,6 +21,8 @@ export default class GameInfo {
       // 状态栏（只显示积分）
       score: { x: 200, y: 120 },
       menuButton: { x: 20, y: 50, width: 80, height: 40 },
+      startGameButton: { x: 110, y: 300, width: 140, height: 80 },//快速开始游戏按钮，放在屏幕中间
+      awesomeCatGameButton: { x: 110, y: 400, width: 140, height: 80 },//快速开始游戏按钮，放在屏幕中间
       adButton: {
         x: 130,  // 在菜单按钮左边
         y: 50,
@@ -82,13 +84,13 @@ export default class GameInfo {
   /**
    * 更新积分显示
    */
-  updateScore(score) {
+  updateScore (score) {
     this.score = score
   }
   /**
  * 格式化时间为分:秒
  */
-  formatTime(ms) {
+  formatTime (ms) {
     const totalSeconds = Math.ceil(ms / 1000)
     const minutes = Math.floor(totalSeconds / 60)
     const seconds = totalSeconds % 60
@@ -97,7 +99,7 @@ export default class GameInfo {
   /**
   * 获取领取按钮的显示文字
   */
-  getClaimButtonText() {
+  getClaimButtonText () {
     if (!this.lastClaimTime) {
       return '领取积分'
     }
@@ -120,7 +122,7 @@ export default class GameInfo {
   /**
    * 获取剩余冷却时间（毫秒）
    */
-  getRemainingCooldown() {
+  getRemainingCooldown () {
     if (!this.lastClaimTime) {
       return 0
     }
@@ -134,7 +136,7 @@ export default class GameInfo {
   /**
    * 检查是否可领取积分
    */
-  canClaimPoints() {
+  canClaimPoints () {
     if (!this.lastClaimTime) {
       return true
     }
@@ -147,7 +149,7 @@ export default class GameInfo {
   /**
   * 领取积分
   */
-  claimPoints() {
+  claimPoints () {
     if (!this.canClaimPoints()) {
       return false
     }
@@ -169,7 +171,7 @@ export default class GameInfo {
    * @param {number} canvasWidth - canvas宽度
    * @param {number} canvasHeight - canvas高度
    */
-  render(ctx, canvasWidth, canvasHeight) {
+  render (ctx, canvasWidth, canvasHeight) {
     if (!ctx) return
 
     // 绘制状态栏背景
@@ -183,6 +185,12 @@ export default class GameInfo {
 
     // 绘制菜单按钮
     this.drawButton(ctx, '菜单', this.uiPositions.menuButton)
+
+    // 绘制快速开始游戏按钮（仅在空闲状态显示）
+    if (this.databus.gameState == 'idle') {
+      this.drawButton(ctx, '开始游戏', this.uiPositions.startGameButton)
+      this.drawButton(ctx, '真棒猫模式', this.uiPositions.awesomeCatGameButton)
+    }
 
     // 绘制菜单弹窗
     if (this.uiPositions.menuModal.visible) {
@@ -247,21 +255,21 @@ export default class GameInfo {
       }
     }
   }
-  isAdCoolingDown() {
+  isAdCoolingDown () {
     return Date.now() - this.lastAdTime < this.adCooldown && this.lastAdTime > 0
   }
 
-  startAdCooldown() {
+  startAdCooldown () {
     this.lastAdTime = Date.now()
   }
 
-  canWatchAd() {
+  canWatchAd () {
     return !this.isAdLoading && !this.isAdCoolingDown()
   }
   /**
    * 绘制按钮
    */
-  drawButton(ctx, text, position, isSelected = false) {
+  drawButton (ctx, text, position, isSelected = false) {
     // 按钮背景
     ctx.fillStyle = isSelected ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)'
     ctx.fillRect(position.x, position.y, position.width, position.height)
@@ -281,7 +289,7 @@ export default class GameInfo {
   /**
    * 绘制菜单弹窗
    */
-  drawMenuModal(ctx, canvasWidth, canvasHeight) {
+  drawMenuModal (ctx, canvasWidth, canvasHeight) {
     const modalWidth = 240
     const modalHeight = 480
     const x = (canvasWidth - modalWidth) / 2
@@ -337,7 +345,7 @@ export default class GameInfo {
   /**
    * 绘制冷却中的按钮
    */
-  drawCoolingButton(ctx, text, position, isSelected = false) {
+  drawCoolingButton (ctx, text, position, isSelected = false) {
     // 按钮背景（灰色表示不可用）
     ctx.fillStyle = isSelected ? 'rgba(100, 100, 100, 0.3)' : 'rgba(100, 100, 100, 0.2)'
     ctx.fillRect(position.x, position.y, position.width, position.height)
@@ -356,7 +364,7 @@ export default class GameInfo {
   /**
    * 绘制助力弹窗
    */
-  drawBetModal(ctx, canvasWidth, canvasHeight) {
+  drawBetModal (ctx, canvasWidth, canvasHeight) {
     const modalWidth = 320
     const modalHeight = 280
     const x = (canvasWidth - modalWidth) / 2
@@ -440,7 +448,7 @@ export default class GameInfo {
   /**
    * 绘制帮助弹窗
    */
-  drawHelpModal(ctx, canvasWidth, canvasHeight) {
+  drawHelpModal (ctx, canvasWidth, canvasHeight) {
     const modalWidth = 400
     const modalHeight = 450
     const x = (canvasWidth - modalWidth) / 2
@@ -462,8 +470,8 @@ export default class GameInfo {
     const rules = [
       '点击心仪的滚珠为其助力并投入积分',
       '滚珠将在充满障碍的赛道中竞速，到达终点',
-      '第一名：获得 4倍 助力积分奖励',
-      '第二名：获得 2倍 助力积分奖励',
+      '第一名：获得 2倍 助力积分奖励',
+      '第二名：获得 1倍 助力积分奖励',
       '其他名次：将失去投入的助力积分'
     ]
 
@@ -491,7 +499,7 @@ export default class GameInfo {
   /**
    * 绘制结果弹窗
    */
-  drawResultModal(ctx, canvasWidth, canvasHeight) {
+  drawResultModal (ctx, canvasWidth, canvasHeight) {
     const modalWidth = 400
     const modalHeight = 400
     const x = (canvasWidth - modalWidth) / 2
@@ -549,7 +557,7 @@ export default class GameInfo {
   /**
    * 判断点是否在按钮内
    */
-  isPointInButton(x, y, button) {
+  isPointInButton (x, y, button) {
     return x >= button.x && x <= button.x + button.width &&
       y >= button.y && y <= button.y + button.height
   }
@@ -557,15 +565,28 @@ export default class GameInfo {
   /**
    * 处理菜单按钮点击
    */
-  handleMenuButtonClick(x, y) {
+  handleMenuButtonClick (x, y) {
     const menuButton = this.uiPositions.menuButton
     return this.isPointInButton(x, y, menuButton)
   }
-
+  /**
+   * 处理快速开始游戏按钮点击
+   */
+  handleStartGameButtonClick (x, y) {
+    const startGameButton = this.uiPositions.startGameButton
+    return this.isPointInButton(x, y, startGameButton)
+  }
+  /**
+   * 处理快速开始游戏按钮点击
+   */
+  handleAwesomeCatGameButtonClick (x, y) {
+    const awesomeCatGameButton = this.uiPositions.awesomeCatGameButton
+    return this.isPointInButton(x, y, awesomeCatGameButton)
+  }
   /**
    * 处理菜单弹窗点击
    */
-  handleMenuModalClick(x, y) {
+  handleMenuModalClick (x, y) {
     if (!this.uiPositions.menuModal.visible) return null
 
     const buttons = this.uiPositions.menuModal.buttons
@@ -599,7 +620,7 @@ export default class GameInfo {
   /**
    * 处理助力弹窗点击
    */
-  handleBetModalClick(x, y, canvasWidth, canvasHeight) {
+  handleBetModalClick (x, y, canvasWidth, canvasHeight) {
     if (!this.uiPositions.betModal.visible) return null
 
     // 检查是否点击了积分选择按钮
@@ -626,7 +647,7 @@ export default class GameInfo {
   /**
    * 处理帮助弹窗点击
    */
-  handleHelpModalClick(x, y, canvasWidth, canvasHeight) {
+  handleHelpModalClick (x, y, canvasWidth, canvasHeight) {
     if (!this.uiPositions.helpModal.visible) return false
 
     const modalWidth = 400
@@ -642,7 +663,7 @@ export default class GameInfo {
   /**
    * 处理结果弹窗点击
    */
-  handleResultModalClick(x, y, canvasWidth, canvasHeight) {
+  handleResultModalClick (x, y, canvasWidth, canvasHeight) {
     if (!this.uiPositions.resultModal.visible) return false
 
     const modalWidth = 400
@@ -653,5 +674,7 @@ export default class GameInfo {
     // 检查是否点击了再玩一次按钮
     return x >= modalX + 100 && x <= modalX + 300 &&
       y >= modalY + 320 && y <= modalY + 370
+
+
   }
 }
