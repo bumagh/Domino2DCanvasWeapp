@@ -744,11 +744,7 @@ export default class AwesomeCatGame extends SubGameBase {
 
         // roundRect 兼容处理
         const drawRoundRect = (x0, y0, w, h, r) => {
-            if (typeof ctx.roundRect === 'function') {
-                ctx.beginPath()
-                ctx.roundRect(x0, y0, w, h, r)
-                return
-            }
+    
             ctx.beginPath()
             ctx.moveTo(x0 + r, y0)
             ctx.lineTo(x0 + w - r, y0)
