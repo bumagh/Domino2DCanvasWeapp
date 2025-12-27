@@ -35,15 +35,13 @@ export default class EventManager {
         // 移除旧的事件监听器（如果有）
         wx.offTouchStart();
 
-        // 绑定新的事件监听器
-        wx.onTouchStart(this.handleTouchStart);
+        // 只注册一次，并确保回调 this 已绑定
+        wx.onTouchStart(this.touchStartHandler)
 
         console.log('事件管理器初始化完成');
         // 初始化激励视频广告
         this.initRewardedVideoAd()
         this.initInterstitialAd()
-        // 微信小游戏触摸事件监听
-        wx.onTouchStart(this.touchStartHandler)
     }
     initInterstitialAd () {
         // 创建插屏广告实例，提前初始化
@@ -238,6 +236,8 @@ export default class EventManager {
                 if (this.interstitialAd) {
                     this.interstitialAd.show().catch((err) => {
                         console.error('插屏广告显示失败', err)
+                        this.main.restartGame();
+
                     })
                     this.interstitialAd.onClose(res => {
                         this.main.restartGame();
