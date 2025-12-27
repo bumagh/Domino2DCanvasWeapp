@@ -27,6 +27,9 @@ export default class EventManager {
 
 
     }
+    setSubGame (subGameInstance) {
+        this.subGame = subGameInstance
+    }
 
     /**
      * 初始化事件监听
