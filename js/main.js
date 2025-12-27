@@ -651,6 +651,10 @@ export default class Main {
     }
   }
 
+  startAwesomeCatGame () {
+
+  }
+
   /**
    * 领取积分
    */

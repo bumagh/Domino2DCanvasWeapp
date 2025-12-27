@@ -188,7 +188,11 @@ export default class EventManager {
             this.toggleMenuModal();
             return;
         }
-        if (this.gameInfo.handleAwesomeCatGameButtonClick(x, y) && (this.databus.gameState === 'idle' || this.guide.getCurrentStep().id === 3)) {
+        if (this.gameInfo.handleStartGameButtonClick(x, y) && (this.databus.gameState === 'idle' || this.guide.getCurrentStep().id === 3)) {
+            this.main.startBetting();
+            return;
+        }
+        if (this.gameInfo.handleAwesomeCatGameButtonClick(x, y) && (this.databus.gameState === 'idle')) {
             this.main.startBetting();
             return;
         }
