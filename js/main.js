@@ -114,7 +114,7 @@ export default class Main {
     // 初始化滚珠
     databus.balls = []
     const centerX = canvas.width / 2
-    const ballCount = 4
+    const ballCount = 7 // 改成7个
     const baseSpacing = 80
     const randomOffsets = []
 
@@ -139,8 +139,12 @@ export default class Main {
         x,
         150,
         15,
-        `hsl(${i * (360 / ballCount)}, 70%, 50%)`
+        OBSTACLE_COLORS[i % OBSTACLE_COLORS.length]
       )
+
+      // 给每个球一个显示用数字（1-7）
+      ball.displayNumber = i + 1
+
       databus.balls.push(ball)
     }
 
@@ -321,7 +325,7 @@ export default class Main {
     if (finishedBalls.length === databus.balls.length && databus.gameState === 'running') {
       databus.gameState = 'finished'
 
-      // 排序
+      // 排序（到终点先后）
       finishedBalls.sort((a, b) => a.finishTime - b.finishTime)
 
       // 计算奖励
@@ -334,9 +338,11 @@ export default class Main {
 
       this.gameInfo.score = databus.score
 
-      // 显示结果
+      // 显示结果 + 幸运数字（按到达顺序）
+      const luckyNumbers = finishedBalls.map(b => b.displayNumber ?? (b.id + 1))
       this.gameInfo.uiPositions.resultModal.visible = true
       this.gameInfo.uiPositions.resultModal.ranking = finishedBalls
+      this.gameInfo.uiPositions.resultModal.luckyNumbers = luckyNumbers
     }
   }
 
@@ -461,6 +467,24 @@ export default class Main {
     // 绘制所有滚珠
     databus.balls.forEach(ball => {
       ball.render(ctx)
+
+      // 在球上绘制数字（叠加层，不侵入 Ball 类）
+      const num = ball.displayNumber ?? (ball.id + 1)
+      ctx.save()
+      ctx.translate(0, -camera.offsetY)
+
+      ctx.font = 'bold 14px Arial'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.lineWidth = 3
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)'
+      ctx.fillStyle = '#ffffff'
+
+      // 为避免与球颜色混淆，描边+填充
+      ctx.strokeText(String(num), ball.x, ball.y)
+      ctx.fillText(String(num), ball.x, ball.y)
+
+      ctx.restore()
     })
 
     ctx.restore()
@@ -468,6 +492,26 @@ export default class Main {
     // 绘制游戏UI
     if (this.gameInfo && typeof this.gameInfo.render === 'function') {
       this.gameInfo.render(ctx, canvas.width, canvas.height)
+    }
+
+    // 如果结果弹窗打开，额外显示幸运数字（不依赖 GameInfo 内部实现）
+    if (this.gameInfo?.uiPositions?.resultModal?.visible && this.gameInfo.uiPositions.resultModal.luckyNumbers) {
+      const nums = this.gameInfo.uiPositions.resultModal.luckyNumbers
+      const text = `本局幸运数字：${nums.join(' - ')}`
+
+      ctx.save()
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.65)'
+      ctx.fillRect(canvas.width / 2 - 180, canvas.height * 0.18, 360, 42)
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+      ctx.strokeRect(canvas.width / 2 - 180, canvas.height * 0.18, 360, 42)
+
+      ctx.fillStyle = '#ffffff'
+      ctx.font = '18px Arial'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(text, canvas.width / 2, canvas.height * 0.18 + 21)
+      ctx.restore()
     }
 
     // 在预览状态显示提示信息
