@@ -67,7 +67,7 @@ export default class AwesomeCatGame extends SubGameBase {
         this.sfx.awesome.src = 'audio/awesome.mp3'
 
         // 推倒音效：项目内未提供 domino.mp3，则回退复用 awesome.mp3
-        this.sfx.domino.src = 'audio/awesome.mp3'
+        this.sfx.domino.src = 'audio/domino.mp3'
 
         this.lastDominoSoundIndex = -1
 
@@ -116,14 +116,14 @@ export default class AwesomeCatGame extends SubGameBase {
         const btnH = 52
 
         // 安全边距，避免按钮跑出屏幕（尤其小屏/全面屏）
-        const safeBottom = 30
+        const safeBottom = 80
         const y = Math.max(80, canvas.height - btnH - safeBottom)
 
         this.ui = {
             leftBtn: { x: canvas.width / 2 - btnW - 20, y, width: btnW, height: btnH, label: '选择左侧' },
             rightBtn: { x: canvas.width / 2 + 20, y, width: btnW, height: btnH, label: '选择右侧' },
             feedbackBtn: { x: canvas.width / 2 - 80, y: y - 70, width: 160, height: 46, label: '真棒！', visible: false },
-            backBtn: { x: 20, y: 20, width: 90, height: 40, label: '返回' }
+            backBtn: { x: 20, y: 90, width: 90, height: 40, label: '返回' }
         }
     }
 
@@ -330,7 +330,7 @@ export default class AwesomeCatGame extends SubGameBase {
             phase: 'move'
         }
 
-        this.cat.bubbleText = 'If I chose...'
+        this.cat.bubbleText = '如果我选择...'
         this.cat.bubbleAlpha = 1
     }
 
@@ -416,7 +416,7 @@ export default class AwesomeCatGame extends SubGameBase {
         // 参考原版：ACTION/FLASHBACK 不允许
         if (this.gameState === 'ACTION' || this.gameState === 'FLASHBACK') return
 
-        this.cat.bubbleText = 'Meow! ❤️'
+        this.cat.bubbleText = '喵! ❤️'
         this.cat.bubbleAlpha = 1
 
         this.spawnParticles(this.cat.x, this.cat.y - 40, this.colors.awesome)
@@ -499,8 +499,8 @@ export default class AwesomeCatGame extends SubGameBase {
         this.drawGrid(ctx2d)
 
         // 终点图标（用 emoji 文本，兼容微信 canvas）
-        this.drawTarget(ctx2d, this.paths.left[this.paths.left.length - 1], '🥕', 'Radish')
-        this.drawTarget(ctx2d, this.paths.right[this.paths.right.length - 1], '🧻', 'Tissue')
+        this.drawTarget(ctx2d, this.paths.left[this.paths.left.length - 1], '🥕', '萝卜')
+        this.drawTarget(ctx2d, this.paths.right[this.paths.right.length - 1], '🧻', '纸巾')
 
         this.drawDominos(ctx2d, this.paths.left)
         this.drawDominos(ctx2d, this.paths.right)
@@ -530,7 +530,7 @@ export default class AwesomeCatGame extends SubGameBase {
             ctx2d.textAlign = 'center'
             ctx2d.shadowColor = '#000'
             ctx2d.shadowBlur = 10
-            ctx2d.fillText('AWESOME CAT!', 0, 0)
+            ctx2d.fillText('真棒猫!', 0, 0)
 
             ctx2d.shadowBlur = 0
             ctx2d.font = '18px Arial'
