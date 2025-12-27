@@ -9,6 +9,13 @@ export default class GameInfo {
     this.selectedBall = null
     this.gameState = 'idle' // idle, preview, betting, running, paused, finished
 
+     // ===== 本局统计（投入/获得）=====
+     this.roundBetPoints = 0
+     this.roundWinPoints = 0
+ 
+     // ===== 结果粒子特效 =====
+     this._particles = []
+     this._particleBurstDone = false
     // 可选择的积分选项
     this.betOptions = [1, 2, 4, 8]
     // 广告奖励积分
@@ -79,18 +86,27 @@ export default class GameInfo {
     if (!this.betOptions) {
       this.betOptions = [1, 2, 4, 8]
     }
+
+    // ===== 本局统计（投入/获得） =====
+    this.roundBetPoints = 0
+    this.roundWinPoints = 0 // 可按“净获得”或“奖励获得”存；由外部结算逻辑传入
+    this._lastRoundSummary = null
+
+    // ===== 结果粒子特效 =====
+    this._particles = []
+    this._particleBurstDone = false
   }
 
   /**
    * 更新积分显示
    */
-  updateScore (score) {
+  updateScore(score) {
     this.score = score
   }
   /**
  * 格式化时间为分:秒
  */
-  formatTime (ms) {
+  formatTime(ms) {
     const totalSeconds = Math.ceil(ms / 1000)
     const minutes = Math.floor(totalSeconds / 60)
     const seconds = totalSeconds % 60
@@ -99,7 +115,7 @@ export default class GameInfo {
   /**
   * 获取领取按钮的显示文字
   */
-  getClaimButtonText () {
+  getClaimButtonText() {
     if (!this.lastClaimTime) {
       return '领取积分'
     }
@@ -122,7 +138,7 @@ export default class GameInfo {
   /**
    * 获取剩余冷却时间（毫秒）
    */
-  getRemainingCooldown () {
+  getRemainingCooldown() {
     if (!this.lastClaimTime) {
       return 0
     }
@@ -136,7 +152,7 @@ export default class GameInfo {
   /**
    * 检查是否可领取积分
    */
-  canClaimPoints () {
+  canClaimPoints() {
     if (!this.lastClaimTime) {
       return true
     }
@@ -149,7 +165,7 @@ export default class GameInfo {
   /**
   * 领取积分
   */
-  claimPoints () {
+  claimPoints() {
     if (!this.canClaimPoints()) {
       return false
     }
@@ -171,9 +187,8 @@ export default class GameInfo {
    * @param {number} canvasWidth - canvas宽度
    * @param {number} canvasHeight - canvas高度
    */
-  render (ctx, canvasWidth, canvasHeight) {
+  render(ctx, canvasWidth, canvasHeight) {
     if (!ctx) return
-
     // 绘制状态栏背景
     ctx.fillStyle = 'rgba(255, 255, 255, 0.05)'
     ctx.fillRect(0, 0, canvasWidth, 120)
@@ -207,10 +222,24 @@ export default class GameInfo {
       this.drawHelpModal(ctx, canvasWidth, canvasHeight)
     }
 
-    // 绘制结果弹窗
-    if (this.uiPositions.resultModal.visible) {
-      this.drawResultModal(ctx, canvasWidth, canvasHeight)
-    }
+       // 绘制结果弹窗
+       if (this.uiPositions.resultModal.visible) {
+        // 弹窗首次出现时触发一次粒子爆发
+        if (!this._particleBurstDone) {
+          this._spawnResultParticles(canvasWidth, canvasHeight)
+          this._particleBurstDone = true
+        }
+  
+        // 先画粒子，再画弹窗（粒子在弹窗后方更自然）
+        this._updateParticles()
+        this._renderParticles(ctx)
+  
+        this.drawResultModal(ctx, canvasWidth, canvasHeight)
+      } else {
+        // 弹窗关闭：允许下次再触发
+        this._particleBurstDone = false
+        this._particles.length = 0
+      }
     // 绘制广告按钮
     if (this.uiPositions.adButton.visible) {
       ctx.fillStyle = this.isAdLoading ? '#999' : '#ff9900'
@@ -255,21 +284,92 @@ export default class GameInfo {
       }
     }
   }
-  isAdCoolingDown () {
+  isAdCoolingDown() {
     return Date.now() - this.lastAdTime < this.adCooldown && this.lastAdTime > 0
   }
 
-  startAdCooldown () {
+  startAdCooldown() {
     this.lastAdTime = Date.now()
   }
 
-  canWatchAd () {
+  canWatchAd() {
     return !this.isAdLoading && !this.isAdCoolingDown()
+  }
+  /**
+ * 设置本局统计（在游戏结算时调用）
+ * @param {number} betPoints 本局投入
+ * @param {number} winPoints 本局获得（你可传“净变化”或“奖励获得”，自行统一）
+ */
+  setRoundSummary(betPoints = 0, winPoints = 0) {
+    this.roundBetPoints = Number(betPoints) || 0
+    this.roundWinPoints = Number(winPoints) || 0
+  }
+
+  /**
+   * 开始新一局时可调用
+   */
+  resetRoundSummary() {
+    this.roundBetPoints = 0
+    this.roundWinPoints = 0
+  }
+
+  // ================= 粒子特效（结果弹窗）=================
+  _spawnResultParticles(canvasWidth, canvasHeight) {
+    const cx = canvasWidth / 2
+    const cy = canvasHeight / 2
+
+    const count = 80
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const speed = 1.5 + Math.random() * 4.5
+      this._particles.push({
+        x: cx,
+        y: cy,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - (Math.random() * 1.5),
+        r: 1.5 + Math.random() * 2.5,
+        life: 40 + Math.floor(Math.random() * 40),
+        maxLife: 80,
+        color: `rgba(${200 + Math.floor(Math.random() * 55)}, ${140 + Math.floor(Math.random() * 115)}, ${20 + Math.floor(Math.random() * 60)}, 1)`
+      })
+    }
+  }
+
+  _updateParticles() {
+    if (!this._particles || this._particles.length === 0) return
+
+    const gravity = 0.08
+    const damping = 0.99
+
+    for (let i = this._particles.length - 1; i >= 0; i--) {
+      const p = this._particles[i]
+      p.vx *= damping
+      p.vy = p.vy * damping + gravity
+      p.x += p.vx
+      p.y += p.vy
+      p.life -= 1
+      if (p.life <= 0) this._particles.splice(i, 1)
+    }
+  }
+
+  _renderParticles(ctx) {
+    if (!this._particles || this._particles.length === 0) return
+
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter'
+    for (const p of this._particles) {
+      const alpha = Math.max(0, Math.min(1, p.life / p.maxLife))
+      ctx.fillStyle = p.color.replace(', 1)', `, ${alpha})`)
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    ctx.restore()
   }
   /**
    * 绘制按钮
    */
-  drawButton (ctx, text, position, isSelected = false) {
+  drawButton(ctx, text, position, isSelected = false) {
     // 按钮背景
     ctx.fillStyle = isSelected ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)'
     ctx.fillRect(position.x, position.y, position.width, position.height)
@@ -289,7 +389,7 @@ export default class GameInfo {
   /**
    * 绘制菜单弹窗
    */
-  drawMenuModal (ctx, canvasWidth, canvasHeight) {
+  drawMenuModal(ctx, canvasWidth, canvasHeight) {
     const modalWidth = 240
     const modalHeight = 480
     const x = (canvasWidth - modalWidth) / 2
@@ -345,7 +445,7 @@ export default class GameInfo {
   /**
    * 绘制冷却中的按钮
    */
-  drawCoolingButton (ctx, text, position, isSelected = false) {
+  drawCoolingButton(ctx, text, position, isSelected = false) {
     // 按钮背景（灰色表示不可用）
     ctx.fillStyle = isSelected ? 'rgba(100, 100, 100, 0.3)' : 'rgba(100, 100, 100, 0.2)'
     ctx.fillRect(position.x, position.y, position.width, position.height)
@@ -364,7 +464,7 @@ export default class GameInfo {
   /**
    * 绘制助力弹窗
    */
-  drawBetModal (ctx, canvasWidth, canvasHeight) {
+  drawBetModal(ctx, canvasWidth, canvasHeight) {
     const modalWidth = 320
     const modalHeight = 280
     const x = (canvasWidth - modalWidth) / 2
@@ -448,7 +548,7 @@ export default class GameInfo {
   /**
    * 绘制帮助弹窗
    */
-  drawHelpModal (ctx, canvasWidth, canvasHeight) {
+  drawHelpModal(ctx, canvasWidth, canvasHeight) {
     const modalWidth = 400
     const modalHeight = 450
     const x = (canvasWidth - modalWidth) / 2
@@ -495,11 +595,46 @@ export default class GameInfo {
     ctx.textAlign = 'center'
     ctx.fillText('我明白了', canvasWidth / 2, y + 262 + 100)
   }
+  /**
+   * 初始化粒子特效
+   */
+  initParticles() {
+    this.particles = [];
+    this.particleCount = 50; // 粒子数量
+  }
 
+  /**
+   * 触发粒子特效
+   */
+  triggerParticles(x, y) {
+    for (let i = 0; i < this.particleCount; i++) {
+      this.particles.push({
+        x: x,
+        y: y,
+        vx: (Math.random() - 0.5) * 4, // 随机水平速度
+        vy: (Math.random() - 0.5) * 4, // 随机垂直速度
+        life: Math.random() * 30 + 20, // 粒子寿命
+        color: `rgba(255, ${Math.random() * 255}, 0, 1)` // 随机颜色
+      });
+    }
+  }
+
+
+  /**
+   * 渲染粒子特效
+   */
+  renderParticles(ctx) {
+    this.particles.forEach(p => {
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
   /**
    * 绘制结果弹窗
    */
-  drawResultModal (ctx, canvasWidth, canvasHeight) {
+  drawResultModal(ctx, canvasWidth, canvasHeight) {
     const modalWidth = 400
     const modalHeight = 400
     const x = (canvasWidth - modalWidth) / 2
@@ -516,11 +651,22 @@ export default class GameInfo {
     ctx.font = '24px Arial'
     ctx.textAlign = 'center'
     ctx.fillText('游戏结束！', canvasWidth / 2, y + 40)
+    // 本局投入/获得
+    const bet = this.roundBetPoints || this.betAmount || 0
+    const win = this.roundWinPoints || 0
 
+    ctx.font = '16px Arial'
+    ctx.textAlign = 'center'
+
+    ctx.fillStyle = '#e0e0e0'
+    ctx.fillText(`本局投入: ${bet} 分`, canvasWidth / 2, y + 70)
+
+    ctx.fillStyle = win >= 0 ? '#00ff99' : '#ff6666'
+    ctx.fillText(`本局获得: ${win} 分`, canvasWidth / 2, y + 95)
     // 排名信息
     ctx.font = '16px Arial'
     this.uiPositions.resultModal.ranking.forEach((ball, index) => {
-      const rankY = y + 80 + index * 40
+      const rankY = y + 120 + index * 40
 
       // 排名数字
       ctx.fillStyle = '#999999'
@@ -535,7 +681,7 @@ export default class GameInfo {
 
       // 滚珠信息
       ctx.fillStyle = '#ffffff'
-      ctx.fillText(`滚珠 ${ball.id}`, x + 90, rankY)
+      ctx.fillText(`滚珠 ${ball.id + 1}`, x + 90, rankY)
 
       if (ball.hasBet) {
         ctx.fillStyle = '#ffff00'
@@ -557,7 +703,7 @@ export default class GameInfo {
   /**
    * 判断点是否在按钮内
    */
-  isPointInButton (x, y, button) {
+  isPointInButton(x, y, button) {
     return x >= button.x && x <= button.x + button.width &&
       y >= button.y && y <= button.y + button.height
   }
@@ -565,28 +711,28 @@ export default class GameInfo {
   /**
    * 处理菜单按钮点击
    */
-  handleMenuButtonClick (x, y) {
+  handleMenuButtonClick(x, y) {
     const menuButton = this.uiPositions.menuButton
     return this.isPointInButton(x, y, menuButton)
   }
   /**
    * 处理快速开始游戏按钮点击
    */
-  handleStartGameButtonClick (x, y) {
+  handleStartGameButtonClick(x, y) {
     const startGameButton = this.uiPositions.startGameButton
     return this.isPointInButton(x, y, startGameButton)
   }
   /**
    * 处理快速开始游戏按钮点击
    */
-  handleAwesomeCatGameButtonClick (x, y) {
+  handleAwesomeCatGameButtonClick(x, y) {
     const awesomeCatGameButton = this.uiPositions.awesomeCatGameButton
     return this.isPointInButton(x, y, awesomeCatGameButton)
   }
   /**
    * 处理菜单弹窗点击
    */
-  handleMenuModalClick (x, y) {
+  handleMenuModalClick(x, y) {
     if (!this.uiPositions.menuModal.visible) return null
 
     const buttons = this.uiPositions.menuModal.buttons
@@ -620,7 +766,7 @@ export default class GameInfo {
   /**
    * 处理助力弹窗点击
    */
-  handleBetModalClick (x, y, canvasWidth, canvasHeight) {
+  handleBetModalClick(x, y, canvasWidth, canvasHeight) {
     if (!this.uiPositions.betModal.visible) return null
 
     // 检查是否点击了积分选择按钮
@@ -647,7 +793,7 @@ export default class GameInfo {
   /**
    * 处理帮助弹窗点击
    */
-  handleHelpModalClick (x, y, canvasWidth, canvasHeight) {
+  handleHelpModalClick(x, y, canvasWidth, canvasHeight) {
     if (!this.uiPositions.helpModal.visible) return false
 
     const modalWidth = 400
@@ -663,7 +809,7 @@ export default class GameInfo {
   /**
    * 处理结果弹窗点击
    */
-  handleResultModalClick (x, y, canvasWidth, canvasHeight) {
+  handleResultModalClick(x, y, canvasWidth, canvasHeight) {
     if (!this.uiPositions.resultModal.visible) return false
 
     const modalWidth = 400

@@ -26,7 +26,7 @@ export default class DataBus {
     this.claimAmount = 5
     
     // 物理参数
-    this.gravity = 0.6
+    this.gravity = 0.3
     this.friction = 0.95
     this.bounceDamping = 0.85
     this.airResistance = 0.99
