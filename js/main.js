@@ -41,7 +41,7 @@ export default class Main {
   /**
    * 初始化游戏
    */
-  init() {
+  init () {
     // 最简化转发功能（只需这3行）
     wx.showShareMenu({
       withShareTicket: true,
@@ -99,7 +99,7 @@ export default class Main {
   /**
    * 初始化游戏对象
    */
-  initGameObjects() {
+  initGameObjects () {
     // 初始化滚珠
     databus.balls = []
     const centerX = canvas.width / 2
@@ -246,7 +246,7 @@ export default class Main {
   /**
    * 碰撞检测
    */
-  collisionDetection() {
+  collisionDetection () {
     // 滚珠与障碍物碰撞检测
     databus.balls.forEach(ball => {
       if (ball.finished) return
@@ -260,7 +260,7 @@ export default class Main {
   /**
    * 边界碰撞检测
    */
-  boundaryDetection() {
+  boundaryDetection () {
     databus.balls.forEach(ball => {
       if (ball.finished) return
 
@@ -285,7 +285,7 @@ export default class Main {
   /**
    * 终点检测
    */
-  finishDetection() {
+  finishDetection () {
     databus.balls.forEach(ball => {
       if (ball.finished) return
 
@@ -304,7 +304,7 @@ export default class Main {
   /**
    * 游戏结束检查
    */
-  checkGameFinish() {
+  checkGameFinish () {
     const finishedBalls = databus.balls.filter(b => b.finished)
 
     if (finishedBalls.length === databus.balls.length && databus.gameState === 'running') {
@@ -332,7 +332,7 @@ export default class Main {
   /**
    * 更新游戏逻辑
    */
-  update() {
+  update () {
     // 如果引导正在显示，暂停游戏逻辑更新
     if (this.guide && this.guide.isActive) {
       // 引导期间只更新相机预览（如果有）
@@ -397,7 +397,7 @@ export default class Main {
   /**
    * canvas重绘函数
    */
-  render() {
+  render () {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
     // 绘制背景
@@ -454,7 +454,8 @@ export default class Main {
         menuButton: this.gameInfo.uiPositions.menuButton,
         menuModal: this.gameInfo.uiPositions.menuModal,
         betModal: this.gameInfo.uiPositions.betModal,
-        cameraOffsetY: camera ? camera.offsetY : 0
+        startGameButton: this.gameInfo.uiPositions.startGameButton,
+        cameraOffsetY: camera ? camera.offsetY : 0,
       }
 
       this.guide.render(
@@ -471,7 +472,7 @@ export default class Main {
   /**
    * 绘制预览状态提示信息
    */
-  drawPreviewInfo() {
+  drawPreviewInfo () {
     const elapsed = Date.now() - previewStartTime
     const remaining = Math.max(0, PREVIEW_DURATION - elapsed)
     const seconds = (remaining / 1000).toFixed(1)
@@ -515,7 +516,7 @@ export default class Main {
   /**
    * 游戏主循环
    */
-  loop() {
+  loop () {
     this.update() // 更新游戏逻辑
     this.render() // 渲染游戏画面
 
@@ -526,7 +527,7 @@ export default class Main {
   /**
    * 开始地图预览
    */
-  startMapPreview() {
+  startMapPreview () {
     databus.gameState = 'preview'
     previewStartTime = Date.now()
 
@@ -540,7 +541,7 @@ export default class Main {
   /**
    * 确认助力
    */
-  confirmBet(betAmount) {
+  confirmBet (betAmount) {
     console.log('确认助力: 滚珠', databus.selectedBall.id, '积分', betAmount)
 
     if (!databus.selectedBall) {
@@ -598,7 +599,7 @@ export default class Main {
   /**
    * 取消助力
    */
-  cancelBet() {
+  cancelBet () {
     this.gameInfo.uiPositions.betModal.visible = false
     databus.gameState = 'idle'
     this.restartGame();
@@ -607,7 +608,7 @@ export default class Main {
   /**
    * 切换暂停/继续
    */
-  togglePause() {
+  togglePause () {
     if (databus.gameState === 'running') {
       databus.gameState = 'paused'
       wx.showToast({
@@ -626,7 +627,7 @@ export default class Main {
   /**
    * 开始助力流程
    */
-  startBetting() {
+  startBetting () {
     if (databus.gameState === 'idle') {
       if (!databus.selectedBall) {
         wx.showToast({
@@ -653,7 +654,7 @@ export default class Main {
   /**
    * 领取积分
    */
-  claimPoints() {
+  claimPoints () {
     if (this.gameInfo.claimPoints()) {
       // 领取成功
       wx.showToast({
@@ -675,7 +676,7 @@ export default class Main {
   /**
    * 重新开始游戏
    */
-  restartGame() {
+  restartGame () {
     databus.gameState = 'idle'
     databus.selectedBall = null
     databus.betAmount = 0
@@ -703,7 +704,7 @@ class InputManager {
     this.currentValue = ''
   }
 
-  showInput(initialValue = '', callback) {
+  showInput (initialValue = '', callback) {
     wx.showKeyboard({
       defaultValue: initialValue,
       maxLength: 10,
@@ -729,7 +730,7 @@ class InputManager {
     })
   }
 
-  hideInput() {
+  hideInput () {
     this.isKeyboardShowing = false
     wx.hideKeyboard()
     wx.offKeyboardInput()

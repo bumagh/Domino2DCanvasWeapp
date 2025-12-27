@@ -96,15 +96,7 @@ export default class EventManager {
             })
         }
     }
-    checkAdButtonClick (x, y) {
-        const adButton = this.gameInfo.uiPositions.adButton
-        if (!adButton || !adButton.visible) return false
 
-        return x >= adButton.x &&
-            x <= adButton.x + adButton.width &&
-            y >= adButton.y &&
-            y <= adButton.y + adButton.height
-    }
     handleAdButtonClick () {
         if (!this.gameInfo.canWatchAd()) {
             if (this.gameInfo.isAdCoolingDown()) {
@@ -162,6 +154,15 @@ export default class EventManager {
         // 可以添加额外的动画效果
         // this.showRewardAnimation(rewardAmount)
     }
+    checkAdButtonClick (x, y) {
+        const adButton = this.gameInfo.uiPositions.adButton
+        if (!adButton || !adButton.visible) return false
+
+        return x >= adButton.x &&
+            x <= adButton.x + adButton.width &&
+            y >= adButton.y &&
+            y <= adButton.y + adButton.height
+    }
     /**
      * 处理触摸开始事件
      */
@@ -184,7 +185,10 @@ export default class EventManager {
             this.toggleMenuModal();
             return;
         }
-
+        if (this.gameInfo.handleStartGameButtonClick(x, y) && this.databus.gameState === 'idle') {
+            this.main.startBetting();
+            return;
+        }
         // 处理菜单弹窗点击
         if (this.gameInfo.uiPositions.menuModal.visible && this.gameInfo.uiPositions.helpModal.visible == false) {
             const menuAction = this.gameInfo.handleMenuModalClick(x, y);
@@ -272,7 +276,7 @@ export default class EventManager {
                 return;
 
             case 4: // 点击开始按钮
-                this.handleGuideStartClick(x, y);
+                this.handleGuideStartGameClick(x, y);
                 return;
 
             case 5: // 助力选择弹窗
@@ -324,6 +328,20 @@ export default class EventManager {
         }
     }
 
+    /**
+   * 引导期间的快速开始游戏按钮点击
+   */
+    handleGuideStartGameClick (x, y) {
+        if (this.gameInfo.handleStartGameButtonClick(x, y) && this.databus.gameState === 'idle') {
+            this.main.startBetting();
+
+            // 菜单打开后，进入下一步
+            setTimeout(() => {
+                this.guide.next();
+            }, 300);
+            return;
+        }
+    }
     /**
      * 引导期间的开始按钮点击
      */

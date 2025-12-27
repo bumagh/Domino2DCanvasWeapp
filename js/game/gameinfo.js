@@ -21,6 +21,7 @@ export default class GameInfo {
       // 状态栏（只显示积分）
       score: { x: 200, y: 120 },
       menuButton: { x: 20, y: 50, width: 80, height: 40 },
+      startGameButton: { x: 110, y: 300, width: 140, height: 80 },//快速开始游戏按钮，放在屏幕中间
       adButton: {
         x: 130,  // 在菜单按钮左边
         y: 50,
@@ -183,6 +184,11 @@ export default class GameInfo {
 
     // 绘制菜单按钮
     this.drawButton(ctx, '菜单', this.uiPositions.menuButton)
+
+    // 绘制快速开始游戏按钮（仅在空闲状态显示）
+    if (this.databus.gameState == 'idle') {
+      this.drawButton(ctx, '开始游戏', this.uiPositions.startGameButton)
+    }
 
     // 绘制菜单弹窗
     if (this.uiPositions.menuModal.visible) {
@@ -560,6 +566,13 @@ export default class GameInfo {
   handleMenuButtonClick (x, y) {
     const menuButton = this.uiPositions.menuButton
     return this.isPointInButton(x, y, menuButton)
+  }
+  /**
+   * 处理快速开始游戏按钮点击
+   */
+  handleStartGameButtonClick (x, y) {
+    const startGameButton = this.uiPositions.startGameButton
+    return this.isPointInButton(x, y, startGameButton)
   }
 
   /**
