@@ -9,6 +9,9 @@ import { SCREEN_WIDTH, SCREEN_HEIGHT } from './render.js';
 import Guide from './game/guide.js'
 import EventManager from './game/eventmanager.js'  // 导入事件管理器
 
+// 子游戏（模块化）
+import AwesomeCatGame from './game/subgames/awesome_cat_game.js'
+
 const ctx = canvas.getContext('2d')
 const databus = new DataBus()
 
@@ -32,6 +35,10 @@ export default class Main {
   gameInfo = null // 游戏UI实例
   guide = null  // 新手引导
   eventManager = null  // 事件管理器
+
+  // 子游戏：当前运行的子游戏实例（为 null 表示主游戏模式）
+  subGame = null
+  lastFrameTime = 0
 
   constructor() {
     this.init()
@@ -66,6 +73,10 @@ export default class Main {
     this.bg = new Background(canvas.width, canvas.height, databus.mapHeight)
     this.gameInfo = new GameInfo(databus)
     camera = new Camera(canvas.width, canvas.height, databus.mapHeight)
+
+    // 让子游戏可以复用主画布上下文
+    this.ctx = ctx
+    this.canvas = canvas
 
     // 初始化新手引导
     this.guide = new Guide()
@@ -333,6 +344,15 @@ export default class Main {
    * 更新游戏逻辑
    */
   update () {
+    // 子游戏模式时：由子游戏接管 update
+    if (this.subGame) {
+      const now = Date.now()
+      const dt = this.lastFrameTime ? (now - this.lastFrameTime) : 16
+      this.lastFrameTime = now
+      this.subGame.update(dt)
+      return
+    }
+
     // 如果引导正在显示，暂停游戏逻辑更新
     if (this.guide && this.guide.isActive) {
       // 引导期间只更新相机预览（如果有）
@@ -398,6 +418,13 @@ export default class Main {
    * canvas重绘函数
    */
   render () {
+    // 子游戏模式时：由子游戏接管 render
+    if (this.subGame) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      this.subGame.render()
+      return
+    }
+
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
     // 绘制背景
@@ -651,8 +678,69 @@ export default class Main {
     }
   }
 
-  startAwesomeCatGame () {
+  /**
+   * 进入子游戏（通用入口）
+   * @param {import('./game/subgames/subgame_base.js').default} subGameInstance
+   */
+  enterSubGame (subGameInstance) {
+    // 退出引导/UI弹窗，避免叠加
+    if (this.guide) this.guide.isActive = false
+    if (this.gameInfo?.uiPositions) {
+      this.gameInfo.uiPositions.menuModal.visible = false
+      this.gameInfo.uiPositions.betModal.visible = false
+      this.gameInfo.uiPositions.helpModal.visible = false
+      this.gameInfo.uiPositions.resultModal.visible = false
+    }
 
+    // 标记状态（可选：保留原 gameState，但子游戏会覆盖 update/render）
+    databus.gameState = 'subgame'
+
+    this.subGame = subGameInstance
+    this.lastFrameTime = 0
+    this.subGame.init()
+
+    // 让事件管理器把触摸转发给子游戏（如果支持）
+    if (this.eventManager) {
+      this.eventManager.setSubGame(this.subGame)
+    }
+  }
+
+  /**
+   * 退出子游戏，回到主游戏
+   */
+  exitSubGame () {
+    if (!this.subGame) return
+
+    try {
+      this.subGame.destroy?.()
+    } catch (e) {
+      console.error('子游戏销毁失败:', e)
+    }
+
+    this.subGame = null
+    this.lastFrameTime = 0
+
+    // 恢复主游戏状态
+    databus.gameState = 'idle'
+
+    if (this.eventManager) {
+      this.eventManager.setSubGame(null)
+    }
+  }
+
+  /**
+   * 运行 AwesomeCat 子游戏（可在此处自由替换为你的子游戏实现）
+   */
+  startAwesomeCatGame () {
+    const sub = new AwesomeCatGame({
+      main: this,
+      canvas: canvas,
+      databus: databus,
+      gameInfo: this.gameInfo,
+      camera: camera
+    })
+
+    this.enterSubGame(sub)
   }
 
   /**

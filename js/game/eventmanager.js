@@ -14,6 +14,9 @@ export default class EventManager {
         this.camera = mainInstance.camera; // 相机实例
         this.guide = mainInstance.guide; // 新手引导实例
 
+        // 子游戏（可选）
+        this.subGame = null
+
         // 绑定方法的this上下文
         // this.handleTouchStart = this.handleTouchStart.bind(this);
         // ... 原有代码 ...
@@ -170,6 +173,12 @@ export default class EventManager {
      * 处理触摸开始事件
      */
     handleTouchStart (e) {
+        // 子游戏优先处理触摸
+        if (this.subGame && typeof this.subGame.onTouchStart === 'function') {
+            this.subGame.onTouchStart(e)
+            return
+        }
+
         const x = e.touches[0].clientX;
         const y = e.touches[0].clientY;
 
@@ -193,7 +202,7 @@ export default class EventManager {
             return;
         }
         if (this.gameInfo.handleAwesomeCatGameButtonClick(x, y) && (this.databus.gameState === 'idle')) {
-            this.main.startBetting();
+            this.main.startAwesomeCatGame();
             return;
         }
         // 处理菜单弹窗点击
