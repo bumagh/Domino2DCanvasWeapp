@@ -22,6 +22,7 @@ export default class GameInfo {
       score: { x: 200, y: 120 },
       menuButton: { x: 20, y: 50, width: 80, height: 40 },
       startGameButton: { x: 110, y: 300, width: 140, height: 80 },//快速开始游戏按钮，放在屏幕中间
+      awesomeCatGameButton: { x: 110, y: 400, width: 140, height: 80 },//快速开始游戏按钮，放在屏幕中间
       adButton: {
         x: 130,  // 在菜单按钮左边
         y: 50,
@@ -188,6 +189,7 @@ export default class GameInfo {
     // 绘制快速开始游戏按钮（仅在空闲状态显示）
     if (this.databus.gameState == 'idle') {
       this.drawButton(ctx, '开始游戏', this.uiPositions.startGameButton)
+      this.drawButton(ctx, '真棒猫模式', this.uiPositions.awesomeCatGameButton)
     }
 
     // 绘制菜单弹窗
@@ -574,7 +576,13 @@ export default class GameInfo {
     const startGameButton = this.uiPositions.startGameButton
     return this.isPointInButton(x, y, startGameButton)
   }
-
+  /**
+   * 处理快速开始游戏按钮点击
+   */
+  handleAwesomeCatGameButtonClick (x, y) {
+    const awesomeCatGameButton = this.uiPositions.awesomeCatGameButton
+    return this.isPointInButton(x, y, awesomeCatGameButton)
+  }
   /**
    * 处理菜单弹窗点击
    */

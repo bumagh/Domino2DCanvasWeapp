@@ -69,6 +69,7 @@ export default class EventManager {
             this.videoAd.onLoad(() => {
                 console.log('激励视频广告加载成功')
                 this.gameInfo.isAdLoading = false
+                this.gameInfo.uiPositions.adButton.visible = true
             })
 
             // 监听广告错误
@@ -79,6 +80,8 @@ export default class EventManager {
                     title: '广告加载失败，请稍后重试',
                     icon: 'none'
                 })
+                this.gameInfo.uiPositions.adButton.visible = true
+
             })
 
             // 监听广告关闭
@@ -185,7 +188,7 @@ export default class EventManager {
             this.toggleMenuModal();
             return;
         }
-        if (this.gameInfo.handleStartGameButtonClick(x, y) && this.databus.gameState === 'idle') {
+        if (this.gameInfo.handleAwesomeCatGameButtonClick(x, y) && (this.databus.gameState === 'idle' || this.guide.getCurrentStep().id === 3)) {
             this.main.startBetting();
             return;
         }
@@ -250,7 +253,7 @@ export default class EventManager {
             const step = this.guide.getCurrentStep();
 
             // 特殊处理最后一步
-            if (step.id === 6) {
+            if (step.id === 5) {
                 this.guide.complete();
                 return;
             }
@@ -272,11 +275,11 @@ export default class EventManager {
                 return;
 
             case 3: // 点击菜单按钮
-                this.handleGuideMenuClick(x, y);
+                this.handleGuideStartGameClick(x, y);
                 return;
 
             case 4: // 点击开始按钮
-                this.handleGuideStartGameClick(x, y);
+                // this.handleGuideStartGameClick(x, y);
                 return;
 
             case 5: // 助力选择弹窗

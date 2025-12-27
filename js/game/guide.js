@@ -43,7 +43,7 @@ export default class Guide {
             {
                 id: 5,
                 title: '游戏规则',
-                content: '滚珠到达终点后根据排名获得奖励：\n第1名：4倍积分\n第2名：2倍积分\n其他：失去积分',
+                content: '滚珠到达终点后根据排名获得奖励：\n第1名：2倍积分\n第2名：1倍积分\n其他：失去积分',
                 target: null,
                 position: 'center',
                 arrow: null,
