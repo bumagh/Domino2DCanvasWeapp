@@ -26,6 +26,7 @@ export default class EventManager {
         // 定义插屏广告
         // 创建 Banner 广告实例，提前初始化
         this.bannerAd = null
+ 
 
 
     }
@@ -48,6 +49,9 @@ export default class EventManager {
         this.initRewardedVideoAd()
         this.initInterstitialAd()
         this.initBannerAd()
+        if(this.subGame!=null){
+            
+        }
     }
     initBannerAd() {
         this.bannerAd = wx.createBannerAd({
