@@ -781,6 +781,8 @@ export default class Main {
    * @param {import('./game/subgames/subgame_base.js').default} subGameInstance
    */
   enterSubGame(subGameInstance) {
+    //关闭著游戏音乐
+    this.bgmAudio?.stop?.()
     // 退出引导/UI弹窗，避免叠加
     if (this.guide) this.guide.isActive = false
     if (this.gameInfo?.uiPositions) {
@@ -820,7 +822,8 @@ export default class Main {
 
     // 恢复主游戏状态
     databus.gameState = 'idle'
-
+    //恢复背景音乐
+    this.bgmAudio?.play?.()
     if (this.eventManager) {
       this.eventManager.setSubGame(null)
     }
