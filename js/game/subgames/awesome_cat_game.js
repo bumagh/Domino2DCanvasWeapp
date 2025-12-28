@@ -71,12 +71,20 @@ export default class AwesomeCatGame extends SubGameBase {
 
         this.lastDominoSoundIndex = -1
 
+        // ====== 背景音乐和结束音乐 ======
+        this.bgm = null
+        this.endMusic = null
+        this._initMusic()
+
         this.resize()
         this.buildUI()
         this.resetGameObjects()
         //底部banner广告
         this.bannerBottomAd = null
         this.initAds()
+        // ====== 真棒值相关 ======
+        this.awesomeValue = 0
+        this.loadAwesomeValue()
     }
     initAds() {
         // 增加底部 banner 广告
@@ -110,6 +118,10 @@ export default class AwesomeCatGame extends SubGameBase {
             this.sfx?.domino?.destroy?.()
             this.bannerBottomAd?.hide?.()
             this.bannerBottomAd?.destroy?.()
+            try {
+                this.bgm?.pause?.()
+                this.endMusic?.pause?.()
+            } catch (e) {}
         } catch (e) { }
     }
 
@@ -132,6 +144,51 @@ export default class AwesomeCatGame extends SubGameBase {
         try {
             this.sfx?.domino?.stop?.()
         } catch (e) { }
+    }
+
+    _initMusic() {
+        // 微信小游戏
+        // if (typeof wx !== 'undefined' && wx.createInnerAudioContext) {
+            this.bgm = wx.createInnerAudioContext()
+            this.bgm.src = 'audio/gamingbgm.mp3'
+            this.bgm.loop = true
+            this.bgm.volume = 0.5
+            this.endMusic = wx.createInnerAudioContext()
+            this.endMusic.src = 'audio/end.mp3'
+            this.endMusic.loop = false
+            this.endMusic.volume = 1
+        // } 
+        // else if (typeof Audio !== 'undefined') {
+        //     // Web
+        //     this.bgm = new Audio('audio/gamingbgm.mp3')
+        //     this.bgm.loop = true
+        //     this.bgm.volume = 0.5
+        //     this.endMusic = new Audio('audio/end.mp3')
+        //     this.endMusic.loop = false
+        //     this.endMusic.volume = 1
+        // }
+    }
+
+    _playBgm() {
+        try {
+            if (this.bgm) {
+                this.bgm.currentTime = 0
+                this.bgm.play()
+            }
+        } catch (e) {}
+    }
+    _stopBgm() {
+        try {
+            if (this.bgm) this.bgm.pause()
+        } catch (e) {}
+    }
+    _playEndMusic() {
+        try {
+            if (this.endMusic) {
+                this.endMusic.currentTime = 0
+                this.endMusic.play()
+            }
+        } catch (e) {}
     }
 
     resize() {
@@ -196,6 +253,8 @@ export default class AwesomeCatGame extends SubGameBase {
         if (this.ui?.feedbackBtn) this.ui.feedbackBtn.visible = false
         this.ui.leftBtn.visible = true
         this.ui.rightBtn.visible = true
+
+        this._playBgm()
     }
 
     createDominos(dir, length, startY) {
@@ -327,6 +386,8 @@ export default class AwesomeCatGame extends SubGameBase {
                 //结束把domino音效关闭
                 this.lastDominoSoundIndex = -1
                 this.stopSfx()
+                     this._stopBgm()
+                this._playEndMusic()
                 a.phase = 'celebrate'
                 a.t = 0
             }
@@ -352,7 +413,7 @@ export default class AwesomeCatGame extends SubGameBase {
 
     startFlashback(targetDir) {
         this.gameState = 'FLASHBACK'
-
+           
         // 重置但保留这次的终点随机状态：这里直接重新 reset 会改终点；
         // 参考原代码 flashback 会 reset，所以这里也 reset，保持一致。
         // this.resetGameObjects()
@@ -416,6 +477,7 @@ export default class AwesomeCatGame extends SubGameBase {
                 this.flashback = null
                 this.gameState = 'ENDED'
                 this.cat.state = 'idle'
+             
             }
         }
     }
@@ -471,6 +533,26 @@ export default class AwesomeCatGame extends SubGameBase {
                 this.cat.bubbleAlpha = 0
             }, 1400)
         }, 300)
+
+        // ====== 真棒值+1并保存 ======
+        this.awesomeValue = (this.awesomeValue || 0) + 1
+        this.saveAwesomeValue()
+    }
+
+    // ====== 真棒值本地存储 ======
+    loadAwesomeValue() {
+        try {
+            const v = wx.getStorageSync ? wx.getStorageSync('awesomeValue') : (localStorage.getItem('awesomeValue'))
+            this.awesomeValue = Number(v) || 0
+        } catch (e) {
+            this.awesomeValue = 0
+        }
+    }
+    saveAwesomeValue() {
+        try {
+            if (wx.setStorageSync) wx.setStorageSync('awesomeValue', this.awesomeValue)
+            else localStorage.setItem('awesomeValue', this.awesomeValue)
+        } catch (e) {}
     }
 
     spawnParticles(x, y, color) {
@@ -550,6 +632,13 @@ export default class AwesomeCatGame extends SubGameBase {
         this.drawTopBar(ctx2d)
         this.drawControls(ctx2d)
 
+        // ====== 显示真棒值 ======
+        ctx2d.save()
+        ctx2d.font = 'bold 18px Arial'
+        ctx2d.fillStyle = '#ffeaa7'
+        ctx2d.textAlign = 'right'
+        ctx2d.fillText(`真棒值: ${this.awesomeValue}`, canvas.width/2+40, 100)
+        ctx2d.restore()
 
         // 结束遮罩
         if (this.gameState === 'ENDED') {
