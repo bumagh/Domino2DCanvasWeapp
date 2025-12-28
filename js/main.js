@@ -40,6 +40,11 @@ export default class Main {
   subGame = null
   lastFrameTime = 0
 
+  // ====== 背景音乐与音效 ======
+  bgmAudio = null
+  collisionAudio = null
+  _lastCollisionTime = 0
+
   constructor() {
     this.init()
     this.loop()
@@ -105,6 +110,35 @@ export default class Main {
 
     // 初始化游戏对象
     this.initGameObjects()
+
+    // 初始化音频
+    this.initAudio()
+  }
+
+  initAudio() {
+    // 微信小游戏环境
+    if (typeof wx !== 'undefined' && wx.createInnerAudioContext) {
+      this.bgmAudio = wx.createInnerAudioContext()
+      this.bgmAudio.src = 'audio/ballbgm.mp3'
+      this.bgmAudio.loop = true
+      this.bgmAudio.volume = 0.2
+      this.bgmAudio.autoplay = true
+      this.bgmAudio.play()
+
+      this.collisionAudio = wx.createInnerAudioContext()
+      this.collisionAudio.src = 'audio/collision.mp3'
+      this.collisionAudio.volume = 1
+    } else if (typeof Audio !== 'undefined') {
+      // H5调试环境
+      this.bgmAudio = new Audio('audio/ballbgm.mp3')
+      this.bgmAudio.loop = true
+      this.bgmAudio.volume = 0.2
+      this.bgmAudio.autoplay = true
+      this.bgmAudio.play()
+
+      this.collisionAudio = new Audio('audio/collision.mp3')
+      this.collisionAudio.volume = 1
+    }
   }
 
   /**
@@ -267,7 +301,23 @@ export default class Main {
       if (ball.finished) return
 
       databus.obstacles.forEach(obstacle => {
-        obstacle.checkCollision(ball, databus.bounceDamping)
+        const collided = obstacle.checkCollision(ball, databus.bounceDamping)
+        // 只对当前选中球播放碰撞音效，且加简单节流
+        if (ball === databus.selectedBall && collided) {
+          const now = Date.now()
+          if (!this._lastCollisionTime || now - this._lastCollisionTime > 120) {
+            if (this.collisionAudio) {
+              try {
+                this.collisionAudio.stop?.()
+                this.collisionAudio.currentTime = 0
+                this.collisionAudio.play()
+              } catch (e) {
+                try { this.collisionAudio.play() } catch (e2) {}
+              }
+            }
+            this._lastCollisionTime = now
+          }
+        }
       })
     })
   }
