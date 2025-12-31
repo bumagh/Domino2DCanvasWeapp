@@ -40,6 +40,11 @@ export default class Main {
   subGame = null
   lastFrameTime = 0
 
+  // ====== 背景音乐与音效 ======
+  bgmAudio = null
+  collisionAudio = null
+  _lastCollisionTime = 0
+
   constructor() {
     this.init()
     this.loop()
@@ -48,7 +53,7 @@ export default class Main {
   /**
    * 初始化游戏
    */
-  init () {
+  init() {
     // 最简化转发功能（只需这3行）
     wx.showShareMenu({
       withShareTicket: true,
@@ -105,16 +110,45 @@ export default class Main {
 
     // 初始化游戏对象
     this.initGameObjects()
+
+    // 初始化音频
+    this.initAudio()
+  }
+
+  initAudio() {
+    // 微信小游戏环境
+    if (typeof wx !== 'undefined' && wx.createInnerAudioContext) {
+      this.bgmAudio = wx.createInnerAudioContext()
+      this.bgmAudio.src = 'audio/ballbgm.mp3'
+      this.bgmAudio.loop = true
+      this.bgmAudio.volume = 0.2
+      this.bgmAudio.autoplay = true
+      this.bgmAudio.play()
+
+      this.collisionAudio = wx.createInnerAudioContext()
+      this.collisionAudio.src = 'audio/collision.mp3'
+      this.collisionAudio.volume = 1
+    } else if (typeof Audio !== 'undefined') {
+      // H5调试环境
+      this.bgmAudio = new Audio('audio/ballbgm.mp3')
+      this.bgmAudio.loop = true
+      this.bgmAudio.volume = 0.2
+      this.bgmAudio.autoplay = true
+      this.bgmAudio.play()
+
+      this.collisionAudio = new Audio('audio/collision.mp3')
+      this.collisionAudio.volume = 1
+    }
   }
 
   /**
    * 初始化游戏对象
    */
-  initGameObjects () {
+  initGameObjects() {
     // 初始化滚珠
     databus.balls = []
     const centerX = canvas.width / 2
-    const ballCount = 4
+    const ballCount = 7 // 改成7个
     const baseSpacing = 80
     const randomOffsets = []
 
@@ -139,8 +173,12 @@ export default class Main {
         x,
         150,
         15,
-        `hsl(${i * (360 / ballCount)}, 70%, 50%)`
+        OBSTACLE_COLORS[i % OBSTACLE_COLORS.length]
       )
+
+      // 给每个球一个显示用数字（1-7）
+      ball.displayNumber = i + 1
+
       databus.balls.push(ball)
     }
 
@@ -257,13 +295,29 @@ export default class Main {
   /**
    * 碰撞检测
    */
-  collisionDetection () {
+  collisionDetection() {
     // 滚珠与障碍物碰撞检测
     databus.balls.forEach(ball => {
       if (ball.finished) return
 
       databus.obstacles.forEach(obstacle => {
-        obstacle.checkCollision(ball, databus.bounceDamping)
+        const collided = obstacle.checkCollision(ball, databus.bounceDamping)
+        // 只对当前选中球播放碰撞音效，且加简单节流
+        if (ball === databus.selectedBall && collided) {
+          const now = Date.now()
+          if (!this._lastCollisionTime || now - this._lastCollisionTime > 120) {
+            if (this.collisionAudio) {
+              try {
+                this.collisionAudio.stop?.()
+                this.collisionAudio.currentTime = 0
+                this.collisionAudio.play()
+              } catch (e) {
+                try { this.collisionAudio.play() } catch (e2) {}
+              }
+            }
+            this._lastCollisionTime = now
+          }
+        }
       })
     })
   }
@@ -271,7 +325,7 @@ export default class Main {
   /**
    * 边界碰撞检测
    */
-  boundaryDetection () {
+  boundaryDetection() {
     databus.balls.forEach(ball => {
       if (ball.finished) return
 
@@ -296,7 +350,7 @@ export default class Main {
   /**
    * 终点检测
    */
-  finishDetection () {
+  finishDetection() {
     databus.balls.forEach(ball => {
       if (ball.finished) return
 
@@ -315,35 +369,41 @@ export default class Main {
   /**
    * 游戏结束检查
    */
-  checkGameFinish () {
+  checkGameFinish() {
     const finishedBalls = databus.balls.filter(b => b.finished)
 
     if (finishedBalls.length === databus.balls.length && databus.gameState === 'running') {
       databus.gameState = 'finished'
 
-      // 排序
+      // 排序（到终点先后）
       finishedBalls.sort((a, b) => a.finishTime - b.finishTime)
 
       // 计算奖励
       const playerRank = finishedBalls.findIndex(b => b.id === databus.selectedBall?.id) + 1
       if (playerRank === 1) {
+        this.gameInfo.setRoundSummary(databus.betAmount, databus.betAmount * 2)
+
         databus.score += databus.betAmount * 2
       } else if (playerRank === 2) {
+        this.gameInfo.setRoundSummary(databus.betAmount, databus.betAmount)
+
         databus.score += databus.betAmount
       }
-
       this.gameInfo.score = databus.score
+      this.gameInfo.setRoundSummary(databus.betAmount, 0)
 
-      // 显示结果
+      // 显示结果 + 幸运数字（按到达顺序）
+      const luckyNumbers = finishedBalls.map(b => b.displayNumber ?? (b.id + 1))
       this.gameInfo.uiPositions.resultModal.visible = true
       this.gameInfo.uiPositions.resultModal.ranking = finishedBalls
+      this.gameInfo.uiPositions.resultModal.luckyNumbers = luckyNumbers
     }
   }
 
   /**
    * 更新游戏逻辑
    */
-  update () {
+  update() {
     // 子游戏模式时：由子游戏接管 update
     if (this.subGame) {
       const now = Date.now()
@@ -417,7 +477,7 @@ export default class Main {
   /**
    * canvas重绘函数
    */
-  render () {
+  render() {
     // 子游戏模式时：由子游戏接管 render
     if (this.subGame) {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -461,6 +521,24 @@ export default class Main {
     // 绘制所有滚珠
     databus.balls.forEach(ball => {
       ball.render(ctx)
+
+      // 在球上绘制数字（叠加层，不侵入 Ball 类）
+      const num = ball.displayNumber ?? (ball.id + 1)
+      ctx.save()
+      // ctx.translate(0, -camera.offsetY)
+
+      ctx.font = 'bold 14px Arial'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.lineWidth = 3
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)'
+      ctx.fillStyle = '#ffffff'
+
+      // 为避免与球颜色混淆，描边+填充
+      ctx.strokeText(String(num), ball.x, ball.y)
+      ctx.fillText(String(num), ball.x, ball.y)
+
+      ctx.restore()
     })
 
     ctx.restore()
@@ -468,6 +546,26 @@ export default class Main {
     // 绘制游戏UI
     if (this.gameInfo && typeof this.gameInfo.render === 'function') {
       this.gameInfo.render(ctx, canvas.width, canvas.height)
+    }
+
+    // 如果结果弹窗打开，额外显示幸运数字（不依赖 GameInfo 内部实现）
+    if (this.gameInfo?.uiPositions?.resultModal?.visible && this.gameInfo.uiPositions.resultModal.luckyNumbers) {
+      const nums = this.gameInfo.uiPositions.resultModal.luckyNumbers
+      const text = `本局幸运数字：${nums.join(' - ')}`
+
+      ctx.save()
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.65)'
+      ctx.fillRect(canvas.width / 2 - 180, canvas.height * 0.18, 360, 42)
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+      ctx.strokeRect(canvas.width / 2 - 180, canvas.height * 0.18, 360, 42)
+
+      ctx.fillStyle = '#ffffff'
+      ctx.font = '18px Arial'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(text, canvas.width / 2, canvas.height * 0.18 + 21)
+      ctx.restore()
     }
 
     // 在预览状态显示提示信息
@@ -499,7 +597,7 @@ export default class Main {
   /**
    * 绘制预览状态提示信息
    */
-  drawPreviewInfo () {
+  drawPreviewInfo() {
     const elapsed = Date.now() - previewStartTime
     const remaining = Math.max(0, PREVIEW_DURATION - elapsed)
     const seconds = (remaining / 1000).toFixed(1)
@@ -543,7 +641,7 @@ export default class Main {
   /**
    * 游戏主循环
    */
-  loop () {
+  loop() {
     this.update() // 更新游戏逻辑
     this.render() // 渲染游戏画面
 
@@ -554,7 +652,7 @@ export default class Main {
   /**
    * 开始地图预览
    */
-  startMapPreview () {
+  startMapPreview() {
     databus.gameState = 'preview'
     previewStartTime = Date.now()
 
@@ -568,7 +666,7 @@ export default class Main {
   /**
    * 确认助力
    */
-  confirmBet (betAmount) {
+  confirmBet(betAmount) {
     console.log('确认助力: 滚珠', databus.selectedBall.id, '积分', betAmount)
 
     if (!databus.selectedBall) {
@@ -626,7 +724,7 @@ export default class Main {
   /**
    * 取消助力
    */
-  cancelBet () {
+  cancelBet() {
     this.gameInfo.uiPositions.betModal.visible = false
     databus.gameState = 'idle'
     this.restartGame();
@@ -635,7 +733,7 @@ export default class Main {
   /**
    * 切换暂停/继续
    */
-  togglePause () {
+  togglePause() {
     if (databus.gameState === 'running') {
       databus.gameState = 'paused'
       wx.showToast({
@@ -654,7 +752,7 @@ export default class Main {
   /**
    * 开始助力流程
    */
-  startBetting () {
+  startBetting() {
     if (databus.gameState === 'idle') {
       if (!databus.selectedBall) {
         wx.showToast({
@@ -682,7 +780,9 @@ export default class Main {
    * 进入子游戏（通用入口）
    * @param {import('./game/subgames/subgame_base.js').default} subGameInstance
    */
-  enterSubGame (subGameInstance) {
+  enterSubGame(subGameInstance) {
+    //关闭著游戏音乐
+    this.bgmAudio?.stop?.()
     // 退出引导/UI弹窗，避免叠加
     if (this.guide) this.guide.isActive = false
     if (this.gameInfo?.uiPositions) {
@@ -708,7 +808,7 @@ export default class Main {
   /**
    * 退出子游戏，回到主游戏
    */
-  exitSubGame () {
+  exitSubGame() {
     if (!this.subGame) return
 
     try {
@@ -722,7 +822,8 @@ export default class Main {
 
     // 恢复主游戏状态
     databus.gameState = 'idle'
-
+    //恢复背景音乐
+    this.bgmAudio?.play?.()
     if (this.eventManager) {
       this.eventManager.setSubGame(null)
     }
@@ -731,7 +832,7 @@ export default class Main {
   /**
    * 运行 AwesomeCat 子游戏（可在此处自由替换为你的子游戏实现）
    */
-  startAwesomeCatGame () {
+  startAwesomeCatGame() {
     const sub = new AwesomeCatGame({
       main: this,
       canvas: canvas,
@@ -746,7 +847,7 @@ export default class Main {
   /**
    * 领取积分
    */
-  claimPoints () {
+  claimPoints() {
     if (this.gameInfo.claimPoints()) {
       // 领取成功
       wx.showToast({
@@ -768,7 +869,7 @@ export default class Main {
   /**
    * 重新开始游戏
    */
-  restartGame () {
+  restartGame() {
     databus.gameState = 'idle'
     databus.selectedBall = null
     databus.betAmount = 0
@@ -796,7 +897,7 @@ class InputManager {
     this.currentValue = ''
   }
 
-  showInput (initialValue = '', callback) {
+  showInput(initialValue = '', callback) {
     wx.showKeyboard({
       defaultValue: initialValue,
       maxLength: 10,
@@ -822,7 +923,7 @@ class InputManager {
     })
   }
 
-  hideInput () {
+  hideInput() {
     this.isKeyboardShowing = false
     wx.hideKeyboard()
     wx.offKeyboardInput()

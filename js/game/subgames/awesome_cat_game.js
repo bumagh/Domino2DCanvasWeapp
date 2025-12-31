@@ -6,15 +6,15 @@ import SubGameBase from './subgame_base.js'
  * 若玩家选择与猫到达的终点道具一致则显示“真棒”按钮。
  */
 export default class AwesomeCatGame extends SubGameBase {
-    get id () {
+    get id() {
         return 'awesomeCat'
     }
 
-    get name () {
+    get name() {
         return 'Awesome Cat'
     }
 
-    init () {
+    init() {
         super.init()
 
         this.colors = {
@@ -67,26 +67,65 @@ export default class AwesomeCatGame extends SubGameBase {
         this.sfx.awesome.src = 'audio/awesome.mp3'
 
         // 推倒音效：项目内未提供 domino.mp3，则回退复用 awesome.mp3
-        this.sfx.domino.src = 'audio/awesome.mp3'
+        this.sfx.domino.src = 'audio/domino.mp3'
 
         this.lastDominoSoundIndex = -1
 
-        this.resize()
-        this.resetGameObjects()
-        this.buildUI()
-    }
+        // ====== 背景音乐和结束音乐 ======
+        this.bgm = null
+        this.endMusic = null
+        this._initMusic()
 
-    destroy () {
+        this.resize()
+        this.buildUI()
+        this.resetGameObjects()
+        //底部banner广告
+        this.bannerBottomAd = null
+        this.initAds()
+        // ====== 真棒值相关 ======
+        this.awesomeValue = 0
+        this.loadAwesomeValue()
+    }
+    initAds() {
+        // 增加底部 banner 广告
+        // 创建 原生模板 广告实例，提前初始化
+        this.bannerBottomAd = wx.createCustomAd({
+            adUnitId: 'adunit-84a0ae39dce9391d',
+            style: {
+                left: 0,
+                top: this.ctx.canvas.height - 120,
+                width: 350
+            }
+        })
+        this.bannerBottomAd.onLoad(() => {
+            console.log('原生模板 广告加载成功')
+        })
+        this.bannerBottomAd.show().then(() => {
+            console.log('原生模板 广告显示成功')
+        });
+
+        // 监听 原生模板 广告错误事件
+        this.bannerBottomAd.onError(err => {
+            console.error(err.errMsg)
+        });
+    }
+    destroy() {
         // 无 DOM 监听需要解绑（事件由 EventManager 转发）
         try {
             this.sfx?.carrot?.destroy?.()
             this.sfx?.tissue?.destroy?.()
             this.sfx?.awesome?.destroy?.()
             this.sfx?.domino?.destroy?.()
+            this.bannerBottomAd?.hide?.()
+            this.bannerBottomAd?.destroy?.()
+            try {
+                this.bgm?.pause?.()
+                this.endMusic?.pause?.()
+            } catch (e) {}
         } catch (e) { }
     }
 
-    playSfx (name) {
+    playSfx(name) {
         // fallback：domino 没有资源时复用 awesome
         if (name === 'domino' && (!this.sfx?.domino?.src || this.sfx.domino.src.endsWith('audio/domino.mp3'))) {
             // 不阻断，照常尝试播放；如果失败由 catch 吃掉
@@ -101,8 +140,58 @@ export default class AwesomeCatGame extends SubGameBase {
             try { a.play?.() } catch (e2) { }
         }
     }
+    stopSfx(){
+        try {
+            this.sfx?.domino?.stop?.()
+        } catch (e) { }
+    }
 
-    resize () {
+    _initMusic() {
+        // 微信小游戏
+        // if (typeof wx !== 'undefined' && wx.createInnerAudioContext) {
+            this.bgm = wx.createInnerAudioContext()
+            this.bgm.src = 'audio/gamingbgm.mp3'
+            this.bgm.loop = true
+            this.bgm.volume = 0.5
+            this.endMusic = wx.createInnerAudioContext()
+            this.endMusic.src = 'audio/end.mp3'
+            this.endMusic.loop = false
+            this.endMusic.volume = 1
+        // } 
+        // else if (typeof Audio !== 'undefined') {
+        //     // Web
+        //     this.bgm = new Audio('audio/gamingbgm.mp3')
+        //     this.bgm.loop = true
+        //     this.bgm.volume = 0.5
+        //     this.endMusic = new Audio('audio/end.mp3')
+        //     this.endMusic.loop = false
+        //     this.endMusic.volume = 1
+        // }
+    }
+
+    _playBgm() {
+        try {
+            if (this.bgm) {
+                this.bgm.currentTime = 0
+                this.bgm.play()
+            }
+        } catch (e) {}
+    }
+    _stopBgm() {
+        try {
+            if (this.bgm) this.bgm.pause()
+        } catch (e) {}
+    }
+    _playEndMusic() {
+        try {
+            if (this.endMusic) {
+                this.endMusic.currentTime = 0
+                this.endMusic.play()
+            }
+        } catch (e) {}
+    }
+
+    resize() {
         const { canvas } = this.ctx
         this.bounds.width = canvas.width
         this.bounds.height = canvas.height
@@ -110,24 +199,24 @@ export default class AwesomeCatGame extends SubGameBase {
         this.bounds.centerY = canvas.height / 2
     }
 
-    buildUI () {
+    buildUI() {
         const { canvas } = this.ctx
         const btnW = 150
         const btnH = 52
 
         // 安全边距，避免按钮跑出屏幕（尤其小屏/全面屏）
-        const safeBottom = 30
+        const safeBottom =120
         const y = Math.max(80, canvas.height - btnH - safeBottom)
 
         this.ui = {
-            leftBtn: { x: canvas.width / 2 - btnW - 20, y, width: btnW, height: btnH, label: '选择左侧' },
-            rightBtn: { x: canvas.width / 2 + 20, y, width: btnW, height: btnH, label: '选择右侧' },
+            leftBtn: { x: canvas.width / 2 - btnW - 20, y, width: btnW, height: btnH, label: '选择左侧' ,visible:true},
+            rightBtn: { x: canvas.width / 2 + 20, y, width: btnW, height: btnH, label: '选择右侧',visible:true },
             feedbackBtn: { x: canvas.width / 2 - 80, y: y - 70, width: 160, height: 46, label: '真棒！', visible: false },
-            backBtn: { x: 20, y: 20, width: 90, height: 40, label: '返回' }
+            backBtn: { x: 20, y: 90, width: 90, height: 40, label: '返回' }
         }
     }
 
-    resetGameObjects () {
+    resetGameObjects() {
         this.cat.x = this.bounds.centerX
         this.cat.baseY = this.bounds.centerY - 50
         this.cat.y = this.cat.baseY
@@ -162,9 +251,13 @@ export default class AwesomeCatGame extends SubGameBase {
         this.gameState = 'IDLE'
 
         if (this.ui?.feedbackBtn) this.ui.feedbackBtn.visible = false
+        this.ui.leftBtn.visible = true
+        this.ui.rightBtn.visible = true
+
+        this._playBgm()
     }
 
-    createDominos (dir, length, startY) {
+    createDominos(dir, length, startY) {
         const dominos = []
         const count = 8
         const spacing = length / count
@@ -184,7 +277,7 @@ export default class AwesomeCatGame extends SubGameBase {
         return dominos
     }
 
-    update (dt) {
+    update(dt) {
         this.time += dt / 1000
 
         // 仅在尺寸变化时重建 UI，避免每帧抖动/闪烁导致“看起来没按钮”
@@ -228,7 +321,7 @@ export default class AwesomeCatGame extends SubGameBase {
         }
     }
 
-    updateAction (dt) {
+    updateAction(dt) {
         const a = this.action
         a.t += dt
 
@@ -290,7 +383,11 @@ export default class AwesomeCatGame extends SubGameBase {
 
                 const isCorrect = a.playerTargetItem === a.catEndItem
                 if (this.ui?.feedbackBtn) this.ui.feedbackBtn.visible = isCorrect
-
+                //结束把domino音效关闭
+                this.lastDominoSoundIndex = -1
+                this.stopSfx()
+                     this._stopBgm()
+                this._playEndMusic()
                 a.phase = 'celebrate'
                 a.t = 0
             }
@@ -314,12 +411,12 @@ export default class AwesomeCatGame extends SubGameBase {
         }
     }
 
-    startFlashback (targetDir) {
+    startFlashback(targetDir) {
         this.gameState = 'FLASHBACK'
-
+           
         // 重置但保留这次的终点随机状态：这里直接重新 reset 会改终点；
         // 参考原代码 flashback 会 reset，所以这里也 reset，保持一致。
-        this.resetGameObjects()
+        // this.resetGameObjects()
 
         const targetPaths = targetDir === -1 ? this.paths.left : this.paths.right
 
@@ -330,11 +427,11 @@ export default class AwesomeCatGame extends SubGameBase {
             phase: 'move'
         }
 
-        this.cat.bubbleText = 'If I chose...'
+        this.cat.bubbleText = '如果我选择...'
         this.cat.bubbleAlpha = 1
     }
 
-    updateFlashback (dt) {
+    updateFlashback(dt) {
         const f = this.flashback
         f.t += dt
 
@@ -380,11 +477,12 @@ export default class AwesomeCatGame extends SubGameBase {
                 this.flashback = null
                 this.gameState = 'ENDED'
                 this.cat.state = 'idle'
+             
             }
         }
     }
 
-    triggerAction (choice) {
+    triggerAction(choice) {
         if (this.gameState !== 'IDLE') return
 
         this.gameState = 'ACTION'
@@ -412,11 +510,11 @@ export default class AwesomeCatGame extends SubGameBase {
         }
     }
 
-    triggerFeedback () {
+    triggerFeedback() {
         // 参考原版：ACTION/FLASHBACK 不允许
         if (this.gameState === 'ACTION' || this.gameState === 'FLASHBACK') return
 
-        this.cat.bubbleText = 'Meow! ❤️'
+        this.cat.bubbleText = '喵! ❤️'
         this.cat.bubbleAlpha = 1
 
         this.spawnParticles(this.cat.x, this.cat.y - 40, this.colors.awesome)
@@ -435,9 +533,29 @@ export default class AwesomeCatGame extends SubGameBase {
                 this.cat.bubbleAlpha = 0
             }, 1400)
         }, 300)
+
+        // ====== 真棒值+1并保存 ======
+        this.awesomeValue = (this.awesomeValue || 0) + 1
+        this.saveAwesomeValue()
     }
 
-    spawnParticles (x, y, color) {
+    // ====== 真棒值本地存储 ======
+    loadAwesomeValue() {
+        try {
+            const v = wx.getStorageSync ? wx.getStorageSync('awesomeValue') : (localStorage.getItem('awesomeValue'))
+            this.awesomeValue = Number(v) || 0
+        } catch (e) {
+            this.awesomeValue = 0
+        }
+    }
+    saveAwesomeValue() {
+        try {
+            if (wx.setStorageSync) wx.setStorageSync('awesomeValue', this.awesomeValue)
+            else localStorage.setItem('awesomeValue', this.awesomeValue)
+        } catch (e) {}
+    }
+
+    spawnParticles(x, y, color) {
         for (let i = 0; i < 20; i++) {
             this.particles.push({
                 x,
@@ -453,17 +571,17 @@ export default class AwesomeCatGame extends SubGameBase {
     }
 
     // 更“弹”的缓动
-    easeOut (p) {
+    easeOut(p) {
         return 1 - Math.pow(1 - p, 3)
     }
 
-    easeOutBack (p) {
+    easeOutBack(p) {
         const c1 = 1.70158
         const c3 = c1 + 1
         return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2)
     }
 
-    easeOutBounce (x) {
+    easeOutBounce(x) {
         const n1 = 7.5625
         const d1 = 2.75
         if (x < 1 / d1) {
@@ -479,7 +597,7 @@ export default class AwesomeCatGame extends SubGameBase {
         return n1 * x * x + 0.984375
     }
 
-    render () {
+    render() {
         const { main, canvas } = this.ctx
         const ctx2d = main.ctx
 
@@ -499,8 +617,8 @@ export default class AwesomeCatGame extends SubGameBase {
         this.drawGrid(ctx2d)
 
         // 终点图标（用 emoji 文本，兼容微信 canvas）
-        this.drawTarget(ctx2d, this.paths.left[this.paths.left.length - 1], '🥕', 'Radish')
-        this.drawTarget(ctx2d, this.paths.right[this.paths.right.length - 1], '🧻', 'Tissue')
+        this.drawTarget(ctx2d, this.paths.left[this.paths.left.length - 1], '🥕', '萝卜')
+        this.drawTarget(ctx2d, this.paths.right[this.paths.right.length - 1], '🧻', '纸巾')
 
         this.drawDominos(ctx2d, this.paths.left)
         this.drawDominos(ctx2d, this.paths.right)
@@ -514,8 +632,13 @@ export default class AwesomeCatGame extends SubGameBase {
         this.drawTopBar(ctx2d)
         this.drawControls(ctx2d)
 
-        // debug：如果你仍看不到按钮，可以临时打开这个矩形
-        // ctx2d.save(); ctx2d.strokeStyle='red'; ctx2d.strokeRect(this.ui.leftBtn.x,this.ui.leftBtn.y,this.ui.leftBtn.width,this.ui.leftBtn.height); ctx2d.restore();
+        // ====== 显示真棒值 ======
+        ctx2d.save()
+        ctx2d.font = 'bold 18px Arial'
+        ctx2d.fillStyle = '#ffeaa7'
+        ctx2d.textAlign = 'right'
+        ctx2d.fillText(`真棒值: ${this.awesomeValue}`, canvas.width/2+40, 100)
+        ctx2d.restore()
 
         // 结束遮罩
         if (this.gameState === 'ENDED') {
@@ -530,7 +653,7 @@ export default class AwesomeCatGame extends SubGameBase {
             ctx2d.textAlign = 'center'
             ctx2d.shadowColor = '#000'
             ctx2d.shadowBlur = 10
-            ctx2d.fillText('AWESOME CAT!', 0, 0)
+            ctx2d.fillText('真棒猫!', 0, 0)
 
             ctx2d.shadowBlur = 0
             ctx2d.font = '18px Arial'
@@ -542,16 +665,19 @@ export default class AwesomeCatGame extends SubGameBase {
         ctx2d.restore()
     }
 
-    drawTopBar (ctx) {
+    drawTopBar(ctx) {
         // 返回按钮
         this.drawButton(ctx, this.ui.backBtn, this.ui.backBtn.label, '#ffffff', 'rgba(255,255,255,0.12)')
     }
 
-    drawControls (ctx) {
+    drawControls(ctx) {
         if (this.gameState === 'ENDED') return
 
+
         // 明确显示 + 高对比
+        if(this.ui.leftBtn.visible)
         this.drawButton(ctx, this.ui.leftBtn, '左：🥕', '#111', this.colors.radish)
+        if(this.ui.rightBtn.visible)
         this.drawButton(ctx, this.ui.rightBtn, '右：🧻', '#111', this.colors.tissue)
 
         if (this.ui.feedbackBtn.visible) {
@@ -566,7 +692,7 @@ export default class AwesomeCatGame extends SubGameBase {
         ctx.restore()
     }
 
-    drawButton (ctx, btn, text, textColor, bgColor) {
+    drawButton(ctx, btn, text, textColor, bgColor) {
         ctx.save()
 
         ctx.fillStyle = bgColor
@@ -588,7 +714,7 @@ export default class AwesomeCatGame extends SubGameBase {
         ctx.restore()
     }
 
-    drawGrid (ctx) {
+    drawGrid(ctx) {
         ctx.save()
         ctx.strokeStyle = 'rgba(255,255,255,0.05)'
         ctx.lineWidth = 1
@@ -611,7 +737,7 @@ export default class AwesomeCatGame extends SubGameBase {
         ctx.restore()
     }
 
-    drawTarget (ctx, lastDomino, emoji, label) {
+    drawTarget(ctx, lastDomino, emoji, label) {
         if (!lastDomino) return
 
         const margin = 24
@@ -633,7 +759,7 @@ export default class AwesomeCatGame extends SubGameBase {
         ctx.restore()
     }
 
-    drawDominos (ctx, list) {
+    drawDominos(ctx, list) {
         list.forEach((d) => {
             ctx.save()
             ctx.translate(d.x, d.y)
@@ -655,7 +781,7 @@ export default class AwesomeCatGame extends SubGameBase {
         })
     }
 
-    drawPixelCat (ctx) {
+    drawPixelCat(ctx) {
         ctx.save()
         ctx.translate(this.cat.x, this.cat.y)
 
@@ -736,7 +862,7 @@ export default class AwesomeCatGame extends SubGameBase {
         ctx.restore()
     }
 
-    drawBubble (ctx) {
+    drawBubble(ctx) {
         ctx.save()
         ctx.globalAlpha = this.cat.bubbleAlpha
         const x = this.cat.x
@@ -744,11 +870,7 @@ export default class AwesomeCatGame extends SubGameBase {
 
         // roundRect 兼容处理
         const drawRoundRect = (x0, y0, w, h, r) => {
-            if (typeof ctx.roundRect === 'function') {
-                ctx.beginPath()
-                ctx.roundRect(x0, y0, w, h, r)
-                return
-            }
+
             ctx.beginPath()
             ctx.moveTo(x0 + r, y0)
             ctx.lineTo(x0 + w - r, y0)
@@ -782,7 +904,7 @@ export default class AwesomeCatGame extends SubGameBase {
         ctx.restore()
     }
 
-    drawParticles (ctx) {
+    drawParticles(ctx) {
         for (let i = 0; i < this.particles.length; i++) {
             const p = this.particles[i]
             ctx.save()
@@ -795,7 +917,7 @@ export default class AwesomeCatGame extends SubGameBase {
         }
     }
 
-    onTouchStart (e) {
+    onTouchStart(e) {
         const touch = e.touches?.[0]
         if (!touch) return
 
@@ -822,20 +944,24 @@ export default class AwesomeCatGame extends SubGameBase {
         }
 
         // 左右选择
-        if (this.isInRect(x, y, this.ui.leftBtn)) {
+        if (this.ui.leftBtn.visible && this.isInRect(x, y, this.ui.leftBtn)) {
             this.playSfx('carrot')
             this.triggerAction('left')
+            this.ui.leftBtn.visible = false
+            this.ui.rightBtn.visible = false
             return
         }
 
-        if (this.isInRect(x, y, this.ui.rightBtn)) {
+        if (this.ui.rightBtn.visible && this.isInRect(x, y, this.ui.rightBtn)) {
             this.playSfx('tissue')
             this.triggerAction('right')
+            this.ui.rightBtn.visible = false
+            this.ui.leftBtn.visible = false
             return
         }
     }
 
-    isInRect (x, y, r) {
+    isInRect(x, y, r) {
         return x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height
     }
 }
