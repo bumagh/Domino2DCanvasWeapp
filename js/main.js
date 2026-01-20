@@ -11,6 +11,7 @@ import EventManager from './game/eventmanager.js'  // 导入事件管理器
 
 // 子游戏（模块化）
 import AwesomeCatGame from './game/subgames/awesome_cat_game.js'
+import SpinDominoGame from './game/subgames/spin_domino_game.js'
 
 const ctx = canvas.getContext('2d')
 const databus = new DataBus()
@@ -834,6 +835,21 @@ export default class Main {
    */
   startAwesomeCatGame() {
     const sub = new AwesomeCatGame({
+      main: this,
+      canvas: canvas,
+      databus: databus,
+      gameInfo: this.gameInfo,
+      camera: camera
+    })
+
+    this.enterSubGame(sub)
+  }
+
+  /**
+   * 运行旋转多米诺子游戏
+   */
+  startSpinDominoGame() {
+    const sub = new SpinDominoGame({
       main: this,
       canvas: canvas,
       databus: databus,

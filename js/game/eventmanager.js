@@ -229,7 +229,9 @@ export default class EventManager {
             return;
         }
         if (this.gameInfo.handleAwesomeCatGameButtonClick(x, y) && (this.databus.gameState === 'idle')) {
-            this.main.startAwesomeCatGame();
+            // this.main.startAwesomeCatGame();
+            this.main.startSpinDominoGame();
+
             return;
         }
         // 处理菜单弹窗点击
