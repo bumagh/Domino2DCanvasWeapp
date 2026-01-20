@@ -23,11 +23,11 @@ export default class SpinDominoGame extends SubGameBase {
             dominoHeight: 40, // 增加到原来的2倍
             dominoDepth: 4,
             rotationSpeed: 0.5, // 弧度/秒 - 多米诺旋转速度
-            maxDominos: 16,
+            maxDominos: 10,
             minDominoDistance: 15, // 最小间距
             chainDelay: 50, // 连锁延迟(ms)
             fallThreshold: 0.3, // 倒下阈值
-            preplacedCount: 14, // 预先摆放的多米诺数量 (80%)
+            preplacedCount: 8, // 预先摆放的多米诺数量 (80%)
             placementTolerance: 0 // 放置容差范围
         }
 
