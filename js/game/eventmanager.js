@@ -229,8 +229,8 @@ export default class EventManager {
             return;
         }
         if (this.gameInfo.handleAwesomeCatGameButtonClick(x, y) && (this.databus.gameState === 'idle')) {
-            // this.main.startAwesomeCatGame();
-            this.main.startSpinDominoGame();
+            this.main.startAwesomeCatGame();
+            // this.main.startSpinDominoGame();
 
             return;
         }
