@@ -12,6 +12,7 @@ import EventManager from './game/eventmanager.js'  // 导入事件管理器
 // 子游戏（模块化）
 import AwesomeCatGame from './game/subgames/awesome_cat_game.js'
 import SpinDominoGame from './game/subgames/spin_domino_game.js'
+import LuckyDominoGame from './game/subgames/lucky_domino_game.js';
 
 const ctx = canvas.getContext('2d')
 const databus = new DataBus()
@@ -859,7 +860,17 @@ export default class Main {
 
     this.enterSubGame(sub)
   }
+ startLuckyDominoGame() {
+    const sub = new LuckyDominoGame({
+      main: this,
+      canvas: canvas,
+      databus: databus,
+      gameInfo: this.gameInfo,
+      camera: camera
+    })
 
+    this.enterSubGame(sub)
+  }
   /**
    * 领取积分
    */

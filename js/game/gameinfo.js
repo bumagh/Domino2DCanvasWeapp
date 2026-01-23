@@ -204,7 +204,7 @@ export default class GameInfo {
     // 绘制快速开始游戏按钮（仅在空闲状态显示）
     if (this.databus.gameState == 'idle') {
       this.drawButton(ctx, '开始游戏', this.uiPositions.startGameButton)
-      this.drawButton(ctx, '真棒猫模式', this.uiPositions.awesomeCatGameButton)
+      this.drawButton(ctx, '幸运多米诺', this.uiPositions.awesomeCatGameButton)
     }
 
     // 绘制菜单弹窗
