@@ -134,7 +134,25 @@ export default class LuckyDominoGame extends SubGameBase {
 
         this._initializeBalls()
         this._initializeTrack()
-        this._showMessage('左赛道选择1个球(1-35)，右赛道选择1个球(1-12)')
+        
+        // 随机选择默认球
+        this._randomSelectBalls()
+        
+        this._showMessage('点击"开始幸运之旅"开始游戏')
+    }
+
+    /**
+     * 随机选择默认球
+     */
+    _randomSelectBalls() {
+        // 随机选择左赛道球
+        this.selectedLeftBallIndex = Math.floor(Math.random() * this.leftBalls.length)
+        
+        // 随机选择右赛道球
+        this.selectedRightBallIndex = Math.floor(Math.random() * this.rightBalls.length)
+        
+        // 显示确认按钮
+        this.ui.confirmAlpha = 1
     }
 
     /**
@@ -227,9 +245,8 @@ export default class LuckyDominoGame extends SubGameBase {
         if (!e.touches || e.touches.length === 0) return
         
         const touch = e.touches[0]
-        const rect = this.ctx.canvas.getBoundingClientRect()
-        const x = touch.clientX - rect.left
-        const y = touch.clientY - rect.top
+        const x = touch.clientX
+        const y = touch.clientY
         
         this.onTouch(x, y)
     }
@@ -700,6 +717,27 @@ export default class LuckyDominoGame extends SubGameBase {
      * 渲染选择界面
      */
     _renderSelectionScreen(ctx) {
+        // 标题
+        ctx.fillStyle = '#f1c40f'
+        ctx.font = 'bold 24px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillText('🍀 幸运球体竞技 🍀', this.bounds.centerX,this.bounds.height/2 )
+        
+        // 选择提示
+        ctx.fillStyle = '#ecf0f1'
+        ctx.font = '16px Arial'
+        ctx.fillText('点击球体可以重新选择，或直接开始游戏', this.bounds.centerX, this.bounds.height/2+80)
+
+        // 显示当前选择
+        if (this.selectedLeftBallIndex >= 0 && this.selectedRightBallIndex >= 0) {
+            const leftBall = this.leftBalls[this.selectedLeftBallIndex]
+            const rightBall = this.rightBalls[this.selectedRightBallIndex]
+            
+            ctx.fillStyle = '#2ecc71'
+            ctx.font = 'bold 18px Arial'
+            ctx.fillText(`已选择：左[${leftBall.number}]号 右[${rightBall.number}]号`, this.bounds.centerX, this.bounds.height/2+110)
+        }
+
         // 渲染左赛道球体
         this.leftBalls.forEach((ball, index) => {
             const isSelected = index === this.selectedLeftBallIndex
@@ -754,16 +792,29 @@ export default class LuckyDominoGame extends SubGameBase {
             ctx.fillText(ball.number.toString(), ball.x, ball.y)
         })
 
-        // 确认按钮
+        // 确认按钮 - 始终显示
         if (this.selectedLeftBallIndex >= 0 && this.selectedRightBallIndex >= 0) {
             const buttonY = this.bounds.height - 100
+            
+            // 按钮背景
             ctx.fillStyle = `rgba(52, 152, 219, ${this.ui.confirmAlpha})`
             ctx.fillRect(this.bounds.centerX - 100, buttonY, 200, 40)
             
+            // 按钮边框
+            ctx.strokeStyle = '#fff'
+            ctx.lineWidth = 2
+            ctx.strokeRect(this.bounds.centerX - 100, buttonY, 200, 40)
+            
+            // 按钮文字
             ctx.fillStyle = '#fff'
-            ctx.font = '16px Arial'
+            ctx.font = 'bold 16px Arial'
             ctx.textAlign = 'center'
-            ctx.fillText('开始幸运之旅', this.bounds.centerX, buttonY + 20)
+            ctx.fillText('开始幸运之旅', this.bounds.centerX, buttonY + 25)
+            
+            // 按钮提示
+            ctx.fillStyle = '#95a5a6'
+            ctx.font = '12px Arial'
+            ctx.fillText('点击按钮开始游戏', this.bounds.centerX, buttonY + 55)
         }
     }
 
@@ -1171,15 +1222,19 @@ export default class LuckyDominoGame extends SubGameBase {
      * 处理选择阶段的触摸
      */
     _handleSelection(x, y) {
+        // 增加触摸区域容错
+        const touchRadius = this.config.ballRadius + 10 // 增加触摸区域
+        
         // 检查左赛道球体点击
         this.leftBalls.forEach((ball, index) => {
             const dx = x - ball.x
             const dy = y - ball.y
             const distance = Math.sqrt(dx * dx + dy * dy)
 
-            if (distance < this.config.ballRadius) {
+            if (distance < touchRadius) {
                 this.selectedLeftBallIndex = index
                 this.ui.confirmAlpha = 1
+                this._showMessage(`已选择左[${ball.number}]号球`)
             }
         })
 
@@ -1189,17 +1244,29 @@ export default class LuckyDominoGame extends SubGameBase {
             const dy = y - ball.y
             const distance = Math.sqrt(dx * dx + dy * dy)
 
-            if (distance < this.config.ballRadius) {
+            if (distance < touchRadius) {
                 this.selectedRightBallIndex = index
                 this.ui.confirmAlpha = 1
+                this._showMessage(`已选择右[${ball.number}]号球`)
             }
         })
 
-        // 检查确认按钮
+        // 检查确认按钮 - 增加按钮区域
         if (this.selectedLeftBallIndex >= 0 && this.selectedRightBallIndex >= 0) {
             const buttonY = this.bounds.height - 100
-            if (x > this.bounds.centerX - 100 && x < this.bounds.centerX + 100 &&
-                y > buttonY && y < buttonY + 40) {
+            const buttonLeft = this.bounds.centerX - 100
+            const buttonRight = this.bounds.centerX + 100
+            const buttonTop = buttonY
+            const buttonBottom = buttonY + 40
+            
+            // 增加按钮触摸区域
+            const expandedButtonLeft = buttonLeft - 10
+            const expandedButtonRight = buttonRight + 10
+            const expandedButtonTop = buttonTop - 10
+            const expandedButtonBottom = buttonBottom + 10
+            
+            if (x > expandedButtonLeft && x < expandedButtonRight &&
+                y > expandedButtonTop && y < expandedButtonBottom) {
                 this._startGame()
             }
         }
@@ -1281,7 +1348,11 @@ export default class LuckyDominoGame extends SubGameBase {
 
         this._initializeBalls()
         this._initializeTrack()
-        this._showMessage('左赛道选择1个球(1-35)，右赛道选择1个球(1-12)')
+        
+        // 重新随机选择默认球
+        this._randomSelectBalls()
+        
+        this._showMessage('点击"开始幸运之旅"开始游戏')
     }
 
     /**
