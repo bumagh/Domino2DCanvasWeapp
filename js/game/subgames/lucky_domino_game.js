@@ -44,6 +44,11 @@ export default class LuckyDominoGame extends SubGameBase {
             }
         }
 
+        // 终点线配置 - 在config定义后设置
+        this.config.finishLineY = this.config.trackHeight - 100 // 终点线位置
+        this.config.finishLineHeight = 10 // 终点线高度
+        this.config.finishLineColor = '#f1c40f' // 终点线颜色
+
         // 颜色配置
         this.colors = {
             bg: '#1a1a2e',
@@ -98,7 +103,35 @@ export default class LuckyDominoGame extends SubGameBase {
             message: '',
             messageAlpha: 0,
             showConfirm: false,
-            confirmAlpha: 0
+            confirmAlpha: 0,
+            showReturnButton: false,
+            returnButtonAlpha: 0,
+            topReturnButton: {
+                show: true,
+                alpha: 1,
+                x: 10,
+                y: 10,
+                width: 80,
+                height: 30
+            },
+            confirmDialog: {
+                show: false,
+                alpha: 0,
+                title: '确认返回',
+                message: '确定要返回主菜单吗？',
+                confirmButton: {
+                    x: 0,
+                    y: 0,
+                    width: 100,
+                    height: 40
+                },
+                cancelButton: {
+                    x: 0,
+                    y: 0,
+                    width: 100,
+                    height: 40
+                }
+            }
         }
 
         // 相机系统
@@ -106,7 +139,11 @@ export default class LuckyDominoGame extends SubGameBase {
             y: 0,
             targetY: 0,
             minY: 0,
-            maxY: this.config.trackHeight - this.bounds.height
+            maxY: this.config.trackHeight - this.bounds.height,
+            autoSwitchTimer: 0,
+            autoSwitchDelay: 2000, // 2秒后切换相机
+            currentBallIndex: 0,
+            followPlayerBall: true
         }
 
         // 结算动画系统
@@ -318,6 +355,13 @@ export default class LuckyDominoGame extends SubGameBase {
     }
 
     update(dt) {
+        // 更新确认对话框动画
+        if (this.ui.confirmDialog.show && this.ui.confirmDialog.alpha < 1) {
+            this.ui.confirmDialog.alpha = Math.min(1, this.ui.confirmDialog.alpha + dt / 300)
+        } else if (!this.ui.confirmDialog.show && this.ui.confirmDialog.alpha > 0) {
+            this.ui.confirmDialog.alpha = Math.max(0, this.ui.confirmDialog.alpha - dt / 300)
+        }
+        
         if (this.gameState === 'PLAYING') {
             this._updateBalls(dt)
             this._updateSkillCooldown(dt)
@@ -373,10 +417,36 @@ export default class LuckyDominoGame extends SubGameBase {
      * 更新相机跟随
      */
     _updateCamera(dt) {
-        // 在游戏中跟随左玩家球
-        if (this.gameState === 'PLAYING' && this.leftPlayerBall) {
-            // 设置相机目标位置为左玩家球的位置，加上偏移量
-            this.camera.targetY = this.leftPlayerBall.y - this.config.cameraOffset
+        // 如果玩家球到达终点，启动自动切换
+        if (!this.camera.followPlayerBall && this.leftPlayerBall && this.leftPlayerBall.finished) {
+            this.camera.autoSwitchTimer += dt
+            
+            // 2秒后切换到下一个球
+            if (this.camera.autoSwitchTimer >= this.camera.autoSwitchDelay) {
+                this._switchToNextBall()
+                this.camera.autoSwitchTimer = 0
+            }
+        }
+        
+        // 跟随玩家球或当前球
+        let targetBall = null
+        if (this.camera.followPlayerBall && this.leftPlayerBall) {
+            targetBall = this.leftPlayerBall
+        } else if (!this.camera.followPlayerBall) {
+            // 获取当前应该跟随的球
+            const allBalls = [...this.leftBalls, ...this.rightBalls]
+            const unfinishedBalls = allBalls.filter(ball => !ball.finished)
+            
+            if (unfinishedBalls.length > 0) {
+                // 按Y坐标排序，跟随最前面的未完成球
+                unfinishedBalls.sort((a, b) => b.y - a.y)
+                targetBall = unfinishedBalls[0]
+            }
+        }
+        
+        if (targetBall) {
+            // 设置相机目标位置
+            this.camera.targetY = targetBall.y - this.config.cameraOffset
             
             // 限制相机范围
             this.camera.targetY = Math.max(this.camera.minY, Math.min(this.camera.maxY, this.camera.targetY))
@@ -384,6 +454,28 @@ export default class LuckyDominoGame extends SubGameBase {
             // 平滑跟随
             const diff = this.camera.targetY - this.camera.y
             this.camera.y += diff * this.config.cameraFollowSpeed
+        }
+    }
+
+    /**
+     * 切换到下一个球
+     */
+    _switchToNextBall() {
+        const allBalls = [...this.leftBalls, ...this.rightBalls]
+        const unfinishedBalls = allBalls.filter(ball => !ball.finished)
+        
+        if (unfinishedBalls.length > 0) {
+            // 按Y坐标排序，选择最前面的球
+            unfinishedBalls.sort((a, b) => b.y - a.y)
+            const nextBall = unfinishedBalls[0]
+            
+            // 显示切换消息
+            this._showMessage(`相机跟随：${nextBall.track === 'left' ? '左' : '右'}赛道[${nextBall.number}]号球`)
+        } else {
+            // 所有球都完成了，显示返回按钮
+            this.ui.showReturnButton = true
+            this.ui.returnButtonAlpha = 1
+            this._showMessage('所有球已到达终点！')
         }
     }
 
@@ -408,6 +500,22 @@ export default class LuckyDominoGame extends SubGameBase {
      * 更新单个球体
      */
     _updateSingleBall(ball, track, dt) {
+        // 检查是否到达终点线
+        if (ball.y >= this.config.finishLineY && !ball.finished) {
+            ball.finished = true
+            ball.finishTime = Date.now()
+            ball.y = this.config.finishLineY // 固定在终点线
+            ball.vx = 0
+            ball.vy = 0
+            
+            // 如果是玩家球，启动相机切换计时器
+            if (ball.isPlayer && ball.track === 'left') {
+                this.camera.autoSwitchTimer = 0
+                this.camera.followPlayerBall = false
+            }
+            return
+        }
+        
         // 应用重力
         ball.vy = Math.min(ball.vy + this.config.gravity, this.config.maxVelocity)
 
@@ -717,16 +825,18 @@ export default class LuckyDominoGame extends SubGameBase {
      * 渲染选择界面
      */
     _renderSelectionScreen(ctx) {
+        const topOffset = 50 // 顶部偏移，为返回按钮腾出空间
+        
         // 标题
         ctx.fillStyle = '#f1c40f'
         ctx.font = 'bold 24px Arial'
         ctx.textAlign = 'center'
-        ctx.fillText('🍀 幸运球体竞技 🍀', this.bounds.centerX,this.bounds.height/2 )
+        ctx.fillText('🍀 幸运球体竞技 🍀', this.bounds.centerX, this.bounds.height/2 - 30 + topOffset)
         
         // 选择提示
         ctx.fillStyle = '#ecf0f1'
         ctx.font = '16px Arial'
-        ctx.fillText('点击球体可以重新选择，或直接开始游戏', this.bounds.centerX, this.bounds.height/2+80)
+        ctx.fillText('点击球体可以重新选择，或直接开始游戏', this.bounds.centerX, this.bounds.height/2 + 50 + topOffset)
 
         // 显示当前选择
         if (this.selectedLeftBallIndex >= 0 && this.selectedRightBallIndex >= 0) {
@@ -735,7 +845,7 @@ export default class LuckyDominoGame extends SubGameBase {
             
             ctx.fillStyle = '#2ecc71'
             ctx.font = 'bold 18px Arial'
-            ctx.fillText(`已选择：左[${leftBall.number}]号 右[${rightBall.number}]号`, this.bounds.centerX, this.bounds.height/2+110)
+            ctx.fillText(`已选择：左[${leftBall.number}]号 右[${rightBall.number}]号`, this.bounds.centerX, this.bounds.height/2 + 80 + topOffset)
         }
 
         // 渲染左赛道球体
@@ -745,7 +855,7 @@ export default class LuckyDominoGame extends SubGameBase {
             // 球体
             ctx.fillStyle = isSelected ? this.colors.ui : this.colors.ball
             ctx.beginPath()
-            ctx.arc(ball.x, ball.y, this.config.ballRadius, 0, Math.PI * 2)
+            ctx.arc(ball.x, ball.y + topOffset, this.config.ballRadius, 0, Math.PI * 2)
             ctx.fill()
 
             // 选中光环
@@ -753,7 +863,7 @@ export default class LuckyDominoGame extends SubGameBase {
                 ctx.strokeStyle = this.colors.ui
                 ctx.lineWidth = 3
                 ctx.beginPath()
-                ctx.arc(ball.x, ball.y, this.config.ballRadius + 5, 0, Math.PI * 2)
+                ctx.arc(ball.x, ball.y + topOffset, this.config.ballRadius + 5, 0, Math.PI * 2)
                 ctx.stroke()
             }
 
@@ -762,7 +872,7 @@ export default class LuckyDominoGame extends SubGameBase {
             ctx.font = 'bold 10px Arial'
             ctx.textAlign = 'center'
             ctx.textBaseline = 'middle'
-            ctx.fillText(ball.number.toString(), ball.x, ball.y)
+            ctx.fillText(ball.number.toString(), ball.x, ball.y + topOffset)
         })
 
         // 渲染右赛道球体
@@ -772,7 +882,7 @@ export default class LuckyDominoGame extends SubGameBase {
             // 球体
             ctx.fillStyle = isSelected ? this.colors.ui : this.colors.ball
             ctx.beginPath()
-            ctx.arc(ball.x, ball.y, this.config.ballRadius, 0, Math.PI * 2)
+            ctx.arc(ball.x, ball.y + topOffset, this.config.ballRadius, 0, Math.PI * 2)
             ctx.fill()
 
             // 选中光环
@@ -780,7 +890,7 @@ export default class LuckyDominoGame extends SubGameBase {
                 ctx.strokeStyle = this.colors.ui
                 ctx.lineWidth = 3
                 ctx.beginPath()
-                ctx.arc(ball.x, ball.y, this.config.ballRadius + 5, 0, Math.PI * 2)
+                ctx.arc(ball.x, ball.y + topOffset, this.config.ballRadius + 5, 0, Math.PI * 2)
                 ctx.stroke()
             }
 
@@ -789,7 +899,7 @@ export default class LuckyDominoGame extends SubGameBase {
             ctx.font = 'bold 10px Arial'
             ctx.textAlign = 'center'
             ctx.textBaseline = 'middle'
-            ctx.fillText(ball.number.toString(), ball.x, ball.y)
+            ctx.fillText(ball.number.toString(), ball.x, ball.y + topOffset)
         })
 
         // 确认按钮 - 始终显示
@@ -845,6 +955,22 @@ export default class LuckyDominoGame extends SubGameBase {
         ctx.moveTo(rightRight, 0)
         ctx.lineTo(rightRight, this.config.trackHeight)
         ctx.stroke()
+
+        // 渲染终点线
+        ctx.fillStyle = this.config.finishLineColor
+        
+        // 左赛道终点线
+        ctx.fillRect(leftLeft, this.config.finishLineY, leftRight - leftLeft, this.config.finishLineHeight)
+        
+        // 右赛道终点线
+        ctx.fillRect(rightLeft, this.config.finishLineY, rightRight - rightLeft, this.config.finishLineHeight)
+        
+        // 终点线文字
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 14px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillText('终点线', this.bounds.centerX - this.config.trackGap / 2 - this.config.trackWidth / 2, this.config.finishLineY - 5)
+        ctx.fillText('终点线', this.bounds.centerX + this.config.trackGap / 2 + this.config.trackWidth / 2, this.config.finishLineY - 5)
 
         // 渲染中间分隔
         ctx.fillStyle = this.colors.divider
@@ -1105,32 +1231,38 @@ export default class LuckyDominoGame extends SubGameBase {
      * 渲染UI
      */
     _renderUI(ctx) {
+        // 渲染左上角返回按钮
+        this._renderTopReturnButton(ctx)
+        
+        // 渲染确认对话框
+        this._renderConfirmDialog(ctx)
+        
         // 消息
         if (this.ui.messageAlpha > 0) {
             ctx.fillStyle = `rgba(236, 240, 241, ${this.ui.messageAlpha})`
             ctx.font = '18px Arial'
             ctx.textAlign = 'center'
-            ctx.fillText(this.ui.message, this.bounds.centerX, 50)
+            ctx.fillText(this.ui.message, this.bounds.centerX, 80) // 调整消息位置
         }
 
         // 相机指示器（仅在游戏中显示）
         if (this.gameState === 'PLAYING' && this.leftPlayerBall) {
             // 高度指示器
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
-            ctx.fillRect(this.bounds.width - 120, 10, 110, 80)
+            ctx.fillRect(this.bounds.width - 120, 60, 110, 80) // 调整位置
             
             ctx.fillStyle = '#ecf0f1'
             ctx.font = '12px Arial'
             ctx.textAlign = 'right'
-            ctx.fillText(`高度: ${Math.round(this.leftPlayerBall.y)}m`, this.bounds.width - 15, 30)
-            ctx.fillText(`进度: ${Math.round((this.leftPlayerBall.y / this.config.trackHeight) * 100)}%`, this.bounds.width - 15, 50)
-            ctx.fillText(`相机: ${Math.round(this.camera.y)}`, this.bounds.width - 15, 70)
+            ctx.fillText(`高度: ${Math.round(this.leftPlayerBall.y)}m`, this.bounds.width - 15, 80)
+            ctx.fillText(`进度: ${Math.round((this.leftPlayerBall.y / this.config.trackHeight) * 100)}%`, this.bounds.width - 15, 100)
+            ctx.fillText(`相机: ${Math.round(this.camera.y)}`, this.bounds.width - 15, 120)
             
             // 进度条
             ctx.fillStyle = '#34495e'
-            ctx.fillRect(this.bounds.width - 115, 75, 100, 5)
+            ctx.fillRect(this.bounds.width - 115, 125, 100, 5)
             ctx.fillStyle = '#2ecc71'
-            ctx.fillRect(this.bounds.width - 115, 75, 100 * (this.leftPlayerBall.y / this.config.trackHeight), 5)
+            ctx.fillRect(this.bounds.width - 115, 125, 100 * (this.leftPlayerBall.y / this.config.trackHeight), 5)
         }
 
         // 技能冷却
@@ -1150,23 +1282,129 @@ export default class LuckyDominoGame extends SubGameBase {
             ctx.fillRect(20, this.bounds.height - 25, 130 * (1 - this.skillCooldown / this.config.skillCooldown), 5)
         }
 
+        // 返回主菜单按钮
+        if (this.ui.showReturnButton) {
+            const buttonY = this.bounds.height - 60
+            const buttonWidth = 160
+            const buttonHeight = 40
+            const buttonX = this.bounds.centerX - buttonWidth / 2
+            
+            // 按钮背景
+            ctx.fillStyle = `rgba(231, 76, 60, ${this.ui.returnButtonAlpha})`
+            ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight)
+            
+            // 按钮边框
+            ctx.strokeStyle = '#fff'
+            ctx.lineWidth = 2
+            ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight)
+            
+            // 按钮文字
+            ctx.fillStyle = '#fff'
+            ctx.font = 'bold 16px Arial'
+            ctx.textAlign = 'center'
+            ctx.fillText('返回主菜单', this.bounds.centerX, buttonY + 25)
+        }
+
         // 团队统计
         if (this.gameState === 'PLAYING') {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
-            ctx.fillRect(10, 10, 150, 120)
+            ctx.fillRect(10, 60, 150, 120) // 调整位置
             
             ctx.fillStyle = '#ecf0f1'
             ctx.font = '14px Arial'
             ctx.textAlign = 'left'
-            ctx.fillText('团队统计:', 20, 30)
+            ctx.fillText('团队统计:', 20, 80)
             
-            let yOffset = 50
+            let yOffset = 100
             Object.entries(this.teamStats).forEach(([team, count]) => {
                 ctx.fillStyle = this.config.teamColors[team]
                 ctx.fillText(`${this._getTeamName(team)}: ${count}`, 20, yOffset)
                 yOffset += 20
             })
         }
+    }
+
+    /**
+     * 渲染左上角返回按钮
+     */
+    _renderTopReturnButton(ctx) {
+        const btn = this.ui.topReturnButton
+        
+        // 按钮背景
+        ctx.fillStyle = `rgba(52, 152, 219, ${btn.alpha})`
+        ctx.fillRect(btn.x, btn.y, btn.width, btn.height)
+        
+        // 按钮边框
+        ctx.strokeStyle = '#fff'
+        ctx.lineWidth = 2
+        ctx.strokeRect(btn.x, btn.y, btn.width, btn.height)
+        
+        // 按钮文字
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 12px Arial'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('返回', btn.x + btn.width / 2, btn.y + btn.height / 2)
+    }
+
+    /**
+     * 渲染确认对话框
+     */
+    _renderConfirmDialog(ctx) {
+        if (!this.ui.confirmDialog.show) return
+        
+        const dialog = this.ui.confirmDialog
+        
+        // 背景遮罩
+        ctx.fillStyle = `rgba(0, 0, 0, ${dialog.alpha * 0.7})`
+        ctx.fillRect(0, 0, this.bounds.width, this.bounds.height)
+        
+        // 对话框背景
+        const dialogWidth = 300
+        const dialogHeight = 180
+        const dialogX = this.bounds.centerX - dialogWidth / 2
+        const dialogY = this.bounds.centerY - dialogHeight / 2
+        
+        ctx.fillStyle = `rgba(44, 62, 80, ${dialog.alpha})`
+        ctx.fillRect(dialogX, dialogY, dialogWidth, dialogHeight)
+        
+        // 对话框边框
+        ctx.strokeStyle = '#fff'
+        ctx.lineWidth = 2
+        ctx.strokeRect(dialogX, dialogY, dialogWidth, dialogHeight)
+        
+        // 标题
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 18px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillText(dialog.title, this.bounds.centerX, dialogY + 40)
+        
+        // 消息
+        ctx.font = '16px Arial'
+        ctx.fillText(dialog.message, this.bounds.centerX, dialogY + 80)
+        
+        // 确认按钮
+        const confirmBtn = dialog.confirmButton
+        confirmBtn.x = this.bounds.centerX - 110
+        confirmBtn.y = dialogY + 120
+        
+        ctx.fillStyle = `rgba(46, 204, 113, ${dialog.alpha})`
+        ctx.fillRect(confirmBtn.x, confirmBtn.y, confirmBtn.width, confirmBtn.height)
+        
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 14px Arial'
+        ctx.fillText('确认', confirmBtn.x + confirmBtn.width / 2, confirmBtn.y + confirmBtn.height / 2 + 5)
+        
+        // 取消按钮
+        const cancelBtn = dialog.cancelButton
+        cancelBtn.x = this.bounds.centerX + 10
+        cancelBtn.y = dialogY + 120
+        
+        ctx.fillStyle = `rgba(231, 76, 60, ${dialog.alpha})`
+        ctx.fillRect(cancelBtn.x, cancelBtn.y, cancelBtn.width, cancelBtn.height)
+        
+        ctx.fillStyle = '#fff'
+        ctx.fillText('取消', cancelBtn.x + cancelBtn.width / 2, cancelBtn.y + cancelBtn.height / 2 + 5)
     }
 
     /**
@@ -1209,6 +1447,17 @@ export default class LuckyDominoGame extends SubGameBase {
      * 处理触摸事件
      */
     onTouch(x, y) {
+        // 优先检查确认对话框
+        if (this.ui.confirmDialog.show) {
+            this._handleConfirmDialogTouch(x, y)
+            return
+        }
+        
+        // 检查左上角返回按钮
+        if (this._checkTopReturnButtonTouch(x, y)) {
+            return
+        }
+        
         if (this.gameState === 'SELECTING') {
             this._handleSelection(x, y)
         } else if (this.gameState === 'PLAYING') {
@@ -1219,16 +1468,58 @@ export default class LuckyDominoGame extends SubGameBase {
     }
 
     /**
+     * 检查左上角返回按钮触摸
+     */
+    _checkTopReturnButtonTouch(x, y) {
+        const btn = this.ui.topReturnButton
+        
+        if (x > btn.x && x < btn.x + btn.width &&
+            y > btn.y && y < btn.y + btn.height) {
+            // 显示确认对话框
+            this.ui.confirmDialog.show = true
+            this.ui.confirmDialog.alpha = 0
+            return true
+        }
+        return false
+    }
+
+    /**
+     * 处理确认对话框触摸
+     */
+    _handleConfirmDialogTouch(x, y) {
+        const dialog = this.ui.confirmDialog
+        
+        // 检查确认按钮
+        const confirmBtn = dialog.confirmButton
+        if (x > confirmBtn.x && x < confirmBtn.x + confirmBtn.width &&
+            y > confirmBtn.y && y < confirmBtn.y + confirmBtn.height) {
+            // 确认返回
+            this._returnToMainMenu()
+            return
+        }
+        
+        // 检查取消按钮
+        const cancelBtn = dialog.cancelButton
+        if (x > cancelBtn.x && x < cancelBtn.x + cancelBtn.width &&
+            y > cancelBtn.y && y < cancelBtn.y + cancelBtn.height) {
+            // 取消返回
+            this.ui.confirmDialog.show = false
+            this.ui.confirmDialog.alpha = 0
+            return
+        }
+    }
+
+    /**
      * 处理选择阶段的触摸
      */
     _handleSelection(x, y) {
-        // 增加触摸区域容错
+        const topOffset = 50 // 顶部偏移，与渲染保持一致
         const touchRadius = this.config.ballRadius + 10 // 增加触摸区域
         
         // 检查左赛道球体点击
         this.leftBalls.forEach((ball, index) => {
             const dx = x - ball.x
-            const dy = y - ball.y
+            const dy = y - (ball.y + topOffset) // 调整Y坐标
             const distance = Math.sqrt(dx * dx + dy * dy)
 
             if (distance < touchRadius) {
@@ -1241,7 +1532,7 @@ export default class LuckyDominoGame extends SubGameBase {
         // 检查右赛道球体点击
         this.rightBalls.forEach((ball, index) => {
             const dx = x - ball.x
-            const dy = y - ball.y
+            const dy = y - (ball.y + topOffset) // 调整Y坐标
             const distance = Math.sqrt(dx * dx + dy * dy)
 
             if (distance < touchRadius) {
@@ -1276,6 +1567,21 @@ export default class LuckyDominoGame extends SubGameBase {
      * 处理游戏中的触摸
      */
     _handleGameTouch(x, y) {
+        // 检查返回按钮点击
+        if (this.ui.showReturnButton) {
+            const buttonY = this.bounds.height - 60
+            const buttonWidth = 160
+            const buttonHeight = 40
+            const buttonX = this.bounds.centerX - buttonWidth / 2
+            
+            if (x > buttonX && x < buttonX + buttonWidth &&
+                y > buttonY && y < buttonY + buttonHeight) {
+                this._returnToMainMenu()
+                return
+            }
+        }
+        
+        // 原有的技能处理逻辑
         if (this.skillCooldown > 0 || !this.leftPlayerBall) return
 
         const isLeftSide = x < this.bounds.centerX
@@ -1353,6 +1659,17 @@ export default class LuckyDominoGame extends SubGameBase {
         this._randomSelectBalls()
         
         this._showMessage('点击"开始幸运之旅"开始游戏')
+    }
+
+    /**
+     * 返回主菜单
+     */
+    _returnToMainMenu() {
+        this.ctx.main.exitSubGame()
+        // 调用父类方法退出子游戏
+        if (this.onExit) {
+            this.onExit()
+        }
     }
 
     /**
