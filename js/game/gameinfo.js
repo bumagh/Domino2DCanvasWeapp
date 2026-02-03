@@ -2,9 +2,10 @@
  * 游戏信息显示类
  */
 export default class GameInfo {
-  constructor(databus) {
+  constructor(databus, userInfo = null) {
     this.databus = databus; // 添加databus引用
-    this.score = databus.score || 10
+    this.userInfo = userInfo; // 添加userInfo引用
+    this.score = userInfo ? userInfo.score : (databus.score || 10)
     this.betAmount = 0
     this.selectedBall = null
     this.gameState = 'idle' // idle, preview, betting, running, paused, finished
@@ -179,6 +180,11 @@ export default class GameInfo {
       this.databus.lastClaimTime = this.lastClaimTime
     }
 
+    // 更新UserInfo中的积分
+    if (this.userInfo) {
+      this.userInfo.updateScore(this.score)
+    }
+
     return true
   }
   /**
@@ -203,6 +209,7 @@ export default class GameInfo {
 
     // 绘制快速开始游戏按钮（仅在空闲状态显示）
     if (this.databus.gameState == 'idle') {
+      
       this.drawButton(ctx, '开始游戏', this.uiPositions.startGameButton)
       this.drawButton(ctx, '幸运多米诺', this.uiPositions.awesomeCatGameButton)
     }
