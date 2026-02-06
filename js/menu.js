@@ -11,8 +11,8 @@ export default class Menu {
     // UI位置配置
     this.uiPositions = {
       // 顶部栏
-      settingsButton: { x: 20, y: 20, width: 60, height: 30 },
-      mailButton: { x: 320, y: 20, width: 60, height: 30 },
+      settingsButton: { x: 20, y: 120, width: 60, height: 30 },
+      mailButton: { x: 320, y: 120, width: 60, height: 30 },
       
       // 用户信息区域
       avatarArea: { x: 180, y: 70, size: 60 },
@@ -71,7 +71,7 @@ export default class Menu {
    */
   update(deltaTime) {
     // 更新头像旋转动画
-    this.animations.avatarRotation += 0.01
+    // this.animations.avatarRotation += 0.01
     
     // 更新按钮缩放动画
     for (let buttonName in this.buttonStates) {

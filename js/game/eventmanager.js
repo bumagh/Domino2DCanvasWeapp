@@ -27,7 +27,7 @@ export default class EventManager {
         // 定义插屏广告
         // 创建 Banner 广告实例，提前初始化
         this.bannerAd = null
- 
+
 
 
     }
@@ -50,8 +50,8 @@ export default class EventManager {
         this.initRewardedVideoAd()
         this.initInterstitialAd()
         this.initBannerAd()
-        if(this.subGame!=null){
-            
+        if (this.subGame != null) {
+
         }
     }
     initBannerAd() {
@@ -222,7 +222,7 @@ export default class EventManager {
                 this.handleMenuAction(menuAction);
                 return;
             }
-            
+
             // 更新菜单悬停状态
             this.menu.handleMouseMove(x, y);
             return;
@@ -230,13 +230,13 @@ export default class EventManager {
 
         // 检查是否点击了广告按钮
         if (this.checkAdButtonClick(x, y)) {
-            this.handleAdButtonClick()
+            // this.handleAdButtonClick()
             return
         }
         // 处理UI按钮点击
         if (this.gameInfo.handleMenuButtonClick(x, y)) {
-         
-            this.toggleMenuModal();
+
+            // this.toggleMenuModal();
             return;
         }
         if (this.gameInfo.handleStartGameButtonClick(x, y) && (this.databus.gameState === 'idle' || this.guide.getCurrentStep().id === 3)) {
@@ -254,7 +254,7 @@ export default class EventManager {
         if (this.gameInfo.uiPositions.menuModal.visible) {
             const menuAction = this.gameInfo.handleMenuModalClick(x, y);
             if (menuAction) {
-             
+
                 this.handleButtonAction(menuAction);
                 return;
             }
@@ -469,7 +469,7 @@ export default class EventManager {
                 break;
             case 'help':
                 this.gameInfo.uiPositions.helpModal.visible = true;
-              
+
                 break;
             case 'start':
                 this.main.startBetting();
@@ -503,63 +503,64 @@ export default class EventManager {
      */
     handleMenuAction(action) {
         console.log('处理菜单动作:', action);
-        
+
         switch (action) {
             case 'startGame':
-                // 启动主游戏
-                this.main.startBetting();
+                // 启动多米诺连锁游戏
+                this.main.startDominoChainGame();
                 break;
-                
+
             case 'quickChallenge':
-                // 快速挑战 - 启动LuckyDomino游戏
-                this.main.startLuckyDominoGame();
+                // 快速挑战 -
+                this.showDevNotice('快速挑战');
+
                 break;
-                
+
             case 'collection':
                 // 我的图鉴 - 开发中
                 this.showDevNotice('图鉴系统');
                 break;
-                
+
             case 'creativeWorkshop':
                 // 创意工坊 - 开发中
                 this.showDevNotice('创意工坊');
                 break;
-                
+
             case 'myStudio':
                 // 我的工作室 - 开发中
                 this.showDevNotice('工作室');
                 break;
-                
+
             case 'task':
                 // 任务系统 - 开发中
                 this.showDevNotice('任务系统');
                 break;
-                
+
             case 'shop':
                 // 商店系统 - 开发中
                 this.showDevNotice('商店系统');
                 break;
-                
+
             case 'friends':
                 // 好友系统 - 开发中
                 this.showDevNotice('好友系统');
                 break;
-                
+
             case 'ranking':
                 // 排行榜 - 开发中
                 this.showDevNotice('排行榜');
                 break;
-                
+
             case 'settings':
                 // 设置 - 开发中
                 this.showDevNotice('设置');
                 break;
-                
+
             case 'mail':
                 // 邮件 - 开发中
                 this.showDevNotice('邮件系统');
                 break;
-                
+
             case 'dailySignInSuccess':
                 // 每日签到成功
                 wx.showToast({
@@ -568,7 +569,7 @@ export default class EventManager {
                     duration: 2000
                 });
                 break;
-                
+
             case 'dailySignInAlready':
                 // 今日已签到
                 wx.showToast({
@@ -577,7 +578,7 @@ export default class EventManager {
                     duration: 1500
                 });
                 break;
-                
+
             default:
                 console.log('未知菜单动作:', action);
         }
@@ -588,11 +589,11 @@ export default class EventManager {
      */
     toggleMenuModal() {
         this.gameInfo.uiPositions.menuModal.visible = !this.gameInfo.uiPositions.menuModal.visible;
-        if(this.gameInfo.uiPositions.menuModal.visible){
-                  this.bannerAd.show().then(() => {
-                    console.log('banner 广告显示成功')
-                });
-        }else{
+        if (this.gameInfo.uiPositions.menuModal.visible) {
+            this.bannerAd.show().then(() => {
+                console.log('banner 广告显示成功')
+            });
+        } else {
             this.bannerAd.hide();
         }
         // 关闭其他弹窗

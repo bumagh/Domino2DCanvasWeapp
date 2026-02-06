@@ -4,31 +4,17 @@ import Camera from './game/camera.js'
 import GameInfo from './game/gameinfo.js'
 import Background from './game/background.js'
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from './render.js';
-import Guide from './game/guide.js'
 import EventManager from './game/eventmanager.js'  // 导入事件管理器
 import UserInfo from './userinfo.js'
 import Menu from './menu.js'
 
 // 子游戏（模块化）
-import AwesomeCatGame from './game/subgames/awesome_cat_game.js'
-import SpinDominoGame from './game/subgames/spin_domino_game.js'
-import LuckyDominoGame from './game/subgames/lucky_domino_game.js';
+import DominoChainGame from './game/subgames/domino_chain_game.js'
 
 const ctx = canvas.getContext('2d')
 const databus = new DataBus()
 
-let gameInfo = null
-let background = null
 let camera = null
-let guide = null
-let eventManager = null  // 事件管理器实例
-let userInfo = null  // 用户信息实例
-let menu = null  // 菜单实例
-let previewStartTime = 0
-const PREVIEW_DURATION = 5000
-
-// 障碍物颜色
-const OBSTACLE_COLORS = ['#ff4444', '#44ff44', '#4444ff', '#ffff44', '#ff00ff', '#00ffff']
 
 /**
  * 游戏主函数
@@ -106,11 +92,6 @@ export default class Main {
     });
 
     this.eventManager.init()
-
-    // 初始化游戏对象
-    // this.initGameObjects()
-
-    // // 初始化音频
     this.initAudio()
 
   }
@@ -375,10 +356,10 @@ export default class Main {
   }
 
   /**
-   * 运行 AwesomeCat 子游戏（可在此处自由替换为你的子游戏实现）
+   * 运行多米诺连锁游戏
    */
-  startAwesomeCatGame() {
-    const sub = new AwesomeCatGame({
+  startDominoChainGame() {
+    const sub = new DominoChainGame({
       main: this,
       canvas: canvas,
       databus: databus,
@@ -389,31 +370,6 @@ export default class Main {
     this.enterSubGame(sub)
   }
 
-  /**
-   * 运行旋转多米诺子游戏
-   */
-  startSpinDominoGame() {
-    const sub = new SpinDominoGame({
-      main: this,
-      canvas: canvas,
-      databus: databus,
-      gameInfo: this.gameInfo,
-      camera: camera
-    })
-
-    this.enterSubGame(sub)
-  }
-  startLuckyDominoGame() {
-    const sub = new LuckyDominoGame({
-      main: this,
-      canvas: canvas,
-      databus: databus,
-      gameInfo: this.gameInfo,
-      camera: camera
-    })
-
-    this.enterSubGame(sub)
-  }
   /**
    * 领取积分
    */
@@ -460,44 +416,3 @@ export default class Main {
   }
 }
 
-// InputManager 类保持不变
-class InputManager {
-  constructor() {
-    this.isKeyboardShowing = false
-    this.currentValue = ''
-  }
-
-  showInput(initialValue = '', callback) {
-    wx.showKeyboard({
-      defaultValue: initialValue,
-      maxLength: 10,
-      multiple: false,
-      confirmHold: false,
-      confirmType: 'done',
-      success: (res) => {
-        this.isKeyboardShowing = true
-      }
-    })
-
-    wx.onKeyboardInput((res) => {
-      this.currentValue = res.value
-    })
-
-    wx.onKeyboardConfirm((res) => {
-      callback && callback(this.currentValue)
-      this.hideInput()
-    })
-
-    wx.onKeyboardComplete((res) => {
-      this.hideInput()
-    })
-  }
-
-  hideInput() {
-    this.isKeyboardShowing = false
-    wx.hideKeyboard()
-    wx.offKeyboardInput()
-    wx.offKeyboardConfirm()
-    wx.offKeyboardComplete()
-  }
-}
