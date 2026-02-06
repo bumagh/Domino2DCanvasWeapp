@@ -22,6 +22,11 @@ export default class DominoChainGame extends SubGameBase {
         this.requiredChainCount = 10 // 需要达到的连锁数量
         this.currentChainCount = 0 // 当前连锁数量
         
+        // 吸附配置
+        this.snapEnabled = true // 启用吸附
+        this.snapDistance = 30 // 吸附距离
+        this.gridSize = 15 // 网格大小
+        
         // 相机和视野配置
         this.cameraZoom = 1.0 // 视野缩放
         this.cameraOffsetX = 0 // 相机X偏移
@@ -43,9 +48,13 @@ export default class DominoChainGame extends SubGameBase {
         // 初始化骨牌库存
         this.initDominoInventory()
         
-        // 2.5D视角配置
+        // 2.5D视角配置（改为2D）
         this.perspective = 0.8 // 透视系数
-        this.floorY = 0.7 // 地面位置（屏幕高度比例）
+        this.floorY = 0.6 // 地面位置上移（从0.7改为0.6）
+        this.platformWidth = 3 // 平台宽度为屏幕宽度的3倍
+        
+        // 2D配置（移除伪3D）
+        this.is2DMode = true // 启用2D模式
         
         // 游戏对象
         this.dominoes = [] // 骨牌数组
@@ -136,8 +145,9 @@ export default class DominoChainGame extends SubGameBase {
         const canvas = this.canvas
         const width = canvas.width
         const height = canvas.height
+        const platformWidth = width * this.platformWidth
         
-        // 设置起点和终点
+        // 设置起点和终点（水平布局）
         this.startPoint = {
             x: width * 0.1,
             y: height * this.floorY,
@@ -145,7 +155,7 @@ export default class DominoChainGame extends SubGameBase {
         }
         
         this.endPoint = {
-            x: width * 0.9,
+            x: width * 0.9, // 终点在屏幕右侧
             y: height * this.floorY,
             radius: 20
         }
@@ -153,9 +163,9 @@ export default class DominoChainGame extends SubGameBase {
         // 清空并重新设置障碍物
         this.obstacles = []
         
-        // 根据关卡添加特殊机关
+        // 根据关卡添加特殊机关（水平布局）
         if (this.level >= 2) {
-            // 添加摆锤
+            // 添加水平摆锤
             this.obstacles.push({
                 type: 'pendulum',
                 x: width * 0.4,
@@ -168,25 +178,25 @@ export default class DominoChainGame extends SubGameBase {
         }
         
         if (this.level >= 3) {
-            // 添加楼梯
+            // 添加水平楼梯（从左到右上升）
             for (let i = 0; i < 3; i++) {
                 this.obstacles.push({
                     type: 'stair',
-                    x: width * (0.5 + i * 0.1),
-                    y: height * (this.floorY - i * 0.05),
-                    width: 40,
-                    height: 10
+                    x: width * (0.5 + i * 0.15), // 水平分布
+                    y: height * (this.floorY - i * 0.03), // 轻微上升
+                    width: 60, // 更宽的台阶
+                    height: 8
                 })
             }
         }
         
         if (this.level >= 4) {
-            // 添加桥梁
+            // 添加水平桥梁
             this.obstacles.push({
                 type: 'bridge',
                 x: width * 0.7,
-                y: height * (this.floorY - 0.1),
-                width: 80,
+                y: height * (this.floorY - 0.05),
+                width: 100, // 更长的桥梁
                 height: 5,
                 rotation: 0
             })
@@ -213,6 +223,57 @@ export default class DominoChainGame extends SubGameBase {
             vy: 0,
             radius: 12,
             active: false
+        }
+        
+        // 第1关预先摆放7个骨牌
+        if (this.level === 1) {
+            this.placePreplacedDominoes()
+        }
+    }
+    
+    /**
+     * 预先摆放骨牌（第1关）
+     */
+    placePreplacedDominoes() {
+        const canvas = this.canvas
+        const groundY = canvas.height * this.floorY
+        
+        // 预先摆放7个骨牌，形成基础路径
+        const preplacedPositions = [
+            { x: canvas.width * 0.15, y: groundY },
+            { x: canvas.width * 0.25, y: groundY },
+            { x: canvas.width * 0.35, y: groundY },
+            { x: canvas.width * 0.45, y: groundY },
+            { x: canvas.width * 0.55, y: groundY },
+            { x: canvas.width * 0.65, y: groundY },
+            { x: canvas.width * 0.75, y: groundY }
+        ]
+        
+        preplacedPositions.forEach((pos, index) => {
+            const domino = {
+                x: pos.x,
+                y: pos.y,
+                width: 8,
+                height: 30,
+                angle: 0,
+                angleVelocity: 0,
+                falling: false,
+                fallen: false,
+                triggeredNext: false,
+                fallTime: 0,
+                color: this.getDominoColor(index),
+                type: 'standard',
+                isPreplaced: true // 标记为预先摆放
+            }
+            
+            this.dominoes.push(domino)
+            this.dominoCount++
+        })
+        
+        // 减少标准骨牌库存
+        const standardDomino = this.dominoInventory.find(d => d.type === 'standard')
+        if (standardDomino) {
+            standardDomino.count = Math.max(0, standardDomino.count - 7)
         }
     }
     
@@ -533,6 +594,12 @@ export default class DominoChainGame extends SubGameBase {
             if (this.dragPreview) {
                 this.dragPreview.x = x
                 this.dragPreview.y = y
+                
+                // 更新吸附预览位置
+                const snappedPos = this.applySnapPosition(x, y)
+                this.dragPreview.snappedX = snappedPos.x
+                this.dragPreview.snappedY = snappedPos.y
+                this.dragPreview.showSnapIndicator = this.shouldShowSnapIndicator(x, y)
             }
             return
         }
@@ -543,6 +610,21 @@ export default class DominoChainGame extends SubGameBase {
         } else if (this.isDraggingCamera && e.touches.length === 1) {
             this.updateCameraPan(e.touches[0].clientX, e.touches[0].clientY)
         }
+    }
+    
+    /**
+     * 判断是否应该显示吸附指示器
+     */
+    shouldShowSnapIndicator(x, y) {
+        if (!this.snapEnabled) return false
+        
+        const worldPos = this.screenToWorld(x, y)
+        const snappedPos = this.applySnapPosition(x, y)
+        
+        const dx = Math.abs(worldPos.x - snappedPos.x)
+        const dy = Math.abs(worldPos.y - snappedPos.y)
+        
+        return dx <= this.snapDistance && dy <= this.snapDistance
     }
     
     /**
@@ -698,24 +780,59 @@ export default class DominoChainGame extends SubGameBase {
     }
     
     /**
-     * 屏幕坐标转世界坐标（考虑相机）
+     * 屏幕坐标转世界坐标（2D模式）
      */
     screenToWorld(screenX, screenY) {
         const canvas = this.canvas
         
-        // 转换为相机空间坐标
-        const cameraX = (screenX - this.canvas.width / 2) / this.cameraZoom - this.cameraOffsetX + this.canvas.width / 2
-        const cameraY = (screenY - this.canvas.height / 2) / this.cameraZoom - this.cameraOffsetY + this.canvas.height / 2
-        
-        // 简单的2.5D投影
-        const worldX = cameraX
-        const worldY = cameraY * (1 + (cameraY / canvas.height) * this.perspective)
-        
-        return { x: worldX, y: worldY }
+        if (this.is2DMode) {
+            // 2D模式：简单的相机变换
+            const cameraX = (screenX - this.canvas.width / 2) / this.cameraZoom - this.cameraOffsetX + this.canvas.width / 2
+            const cameraY = (screenY - this.canvas.height / 2) / this.cameraZoom - this.cameraOffsetY + this.canvas.height / 2
+            
+            return { x: cameraX, y: cameraY }
+        } else {
+            // 伪3D模式（保留原有逻辑）
+            const cameraX = (screenX - this.canvas.width / 2) / this.cameraZoom - this.cameraOffsetX + this.canvas.width / 2
+            const cameraY = (screenY - this.canvas.height / 2) / this.cameraZoom - this.cameraOffsetY + this.canvas.height / 2
+            
+            // 伪3D投影
+            const worldX = cameraX
+            const worldY = this.applyPseudo3DProjection(cameraX, cameraY)
+            
+            return { x: worldX, y: worldY }
+        }
     }
+    
+    /**
+     * 世界坐标转屏幕坐标（2D模式）
+     */
+    worldToScreen(worldX, worldY) {
+        const canvas = this.canvas
+        
+        if (this.is2DMode) {
+            // 2D模式：简单的相机变换
+            const screenX = (worldX - this.canvas.width / 2 + this.cameraOffsetX) * this.cameraZoom + this.canvas.width / 2
+            const screenY = (worldY - this.canvas.height / 2 + this.cameraOffsetY) * this.cameraZoom + this.canvas.height / 2
+            
+            return { x: screenX, y: screenY }
+        } else {
+            // 伪3D模式（保留原有逻辑）
+            const cameraY = this.reversePseudo3DProjection(worldX, worldY)
+            const cameraX = worldX
+            
+            const screenX = (cameraX - this.canvas.width / 2 + this.cameraOffsetX) * this.cameraZoom + this.canvas.width / 2
+            const screenY = (cameraY - this.canvas.height / 2 + this.cameraOffsetY) * this.cameraZoom + this.canvas.height / 2
+            
+            return { x: screenX, y: screenY }
+        }
+    }
+    /**
+     * 检查道具区点击
+     */
     checkInventoryClick(x, y) {
         const canvas = this.canvas
-        const inventoryY = canvas.height - 80
+        const inventoryY = canvas.height - 120 // 上移到-120
         const slotWidth = 60
         const slotHeight = 60
         const startX = (canvas.width - this.inventorySlots * slotWidth) / 2
@@ -764,6 +881,55 @@ export default class DominoChainGame extends SubGameBase {
     }
     
     /**
+     * 应用吸附效果
+     */
+    applySnapPosition(x, y) {
+        if (!this.snapEnabled) return { x, y }
+        
+        // 转换为世界坐标
+        const worldPos = this.screenToWorld(x, y)
+        
+        // 网格吸附
+        const snappedX = Math.round(worldPos.x / this.gridSize) * this.gridSize
+        const snappedY = Math.round(worldPos.y / this.gridSize) * this.gridSize
+        
+        // 检查是否在吸附距离内
+        const dx = Math.abs(worldPos.x - snappedX)
+        const dy = Math.abs(worldPos.y - snappedY)
+        
+        if (dx <= this.snapDistance && dy <= this.snapDistance) {
+            return { x: snappedX, y: snappedY }
+        }
+        
+        return worldPos
+    }
+    
+    /**
+     * 检查位置是否有效（考虑吸附）
+     */
+    isValidPositionWithSnap(x, y) {
+        // 应用吸附
+        const snappedPos = this.applySnapPosition(x, y)
+        
+        // 检查是否在地面附近
+        const canvas = this.canvas
+        const groundY = canvas.height * this.floorY
+        if (Math.abs(snappedPos.y - groundY) > 50) {
+            return false
+        }
+        
+        // 检查是否与其他骨牌重叠
+        for (let domino of this.dominoes) {
+            const dx = snappedPos.x - domino.x
+            const dy = snappedPos.y - domino.y
+            if (Math.sqrt(dx * dx + dy * dy) < domino.width * 2) {
+                return false
+            }
+        }
+        
+        return true
+    }
+    /**
      * 从拖拽放置骨牌
      */
     placeDominoFromDrag(x, y) {
@@ -772,17 +938,17 @@ export default class DominoChainGame extends SubGameBase {
         const dominoType = this.dominoInventory[this.selectedDominoType]
         if (dominoType.count <= 0) return
         
-        // 转换为2.5D坐标
-        const worldPos = this.screenToWorld(x, y)
-        
-        // 检查位置是否有效
-        if (!this.isValidPosition(worldPos.x, worldPos.y)) {
+        // 检查位置是否有效（考虑吸附）
+        if (!this.isValidPositionWithSnap(x, y)) {
             wx.showToast({
                 title: '不能放置在这里',
                 icon: 'none'
             })
             return
         }
+        
+        // 应用吸附位置
+        const worldPos = this.applySnapPosition(x, y)
         
         // 创建骨牌
         const domino = {
@@ -797,7 +963,8 @@ export default class DominoChainGame extends SubGameBase {
             triggeredNext: false,
             fallTime: 0,
             color: dominoType.color,
-            type: dominoType.type
+            type: dominoType.type,
+            isPreplaced: false // 标记为玩家放置
         }
         
         this.dominoes.push(domino)
@@ -806,9 +973,23 @@ export default class DominoChainGame extends SubGameBase {
         // 减少库存
         dominoType.count--
         
+        // 显示吸附反馈
+        this.showSnapFeedback()
+        
         // 如果库存用完，结束拖拽
         if (dominoType.count <= 0) {
             this.endDrag()
+        }
+    }
+    
+    /**
+     * 显示吸附反馈
+     */
+    showSnapFeedback() {
+        // 可以添加视觉反馈，比如短暂的闪光效果
+        // 这里暂时用toast提示
+        if (this.snapEnabled) {
+            // 吸附成功的视觉反馈可以在这里添加
         }
     }
     
@@ -1012,27 +1193,102 @@ export default class DominoChainGame extends SubGameBase {
     }
     
     /**
-     * 绘制地面
+     * 绘制地面（2D模式）
      */
     drawGround() {
         const ctx = this.ctx
         const canvas = this.canvas
         const groundY = canvas.height * this.floorY
+        const platformWidth = canvas.width * this.platformWidth
         
-        // 地面渐变
-        const gradient = ctx.createLinearGradient(0, groundY, 0, canvas.height)
-        gradient.addColorStop(0, '#8B7355')
-        gradient.addColorStop(1, '#6B5B45')
-        ctx.fillStyle = gradient
-        ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY)
-        
-        // 地面线条
-        ctx.strokeStyle = '#5B4B35'
-        ctx.lineWidth = 2
-        ctx.beginPath()
-        ctx.moveTo(0, groundY)
-        ctx.lineTo(canvas.width, groundY)
-        ctx.stroke()
+        if (this.is2DMode) {
+            // 2D模式：简单的地面绘制
+            // 主平台渐变
+            const gradient = ctx.createLinearGradient(0, groundY - 20, 0, canvas.height)
+            gradient.addColorStop(0, '#8B7355')
+            gradient.addColorStop(0.5, '#7B6345')
+            gradient.addColorStop(1, '#6B5B35')
+            ctx.fillStyle = gradient
+            ctx.fillRect(0, groundY, platformWidth, canvas.height - groundY)
+            
+            // 平台边缘高亮
+            ctx.strokeStyle = '#9B8365'
+            ctx.lineWidth = 2
+            ctx.beginPath()
+            ctx.moveTo(0, groundY)
+            ctx.lineTo(platformWidth, groundY)
+            ctx.stroke()
+            
+            // 简单的网格线（可选）
+            ctx.strokeStyle = 'rgba(91, 75, 53, 0.1)'
+            ctx.lineWidth = 0.5
+            for (let i = 0; i <= 20; i++) {
+                const x = platformWidth * i / 20
+                ctx.beginPath()
+                ctx.moveTo(x, groundY)
+                ctx.lineTo(x, canvas.height)
+                ctx.stroke()
+            }
+        } else {
+            // 伪3D模式（保留原有逻辑）
+            ctx.save()
+            
+            // 地平线
+            const horizonY = canvas.height * this.pseudo3D.horizonY
+            ctx.strokeStyle = 'rgba(139, 75, 53, 0.3)'
+            ctx.lineWidth = 1
+            ctx.beginPath()
+            ctx.moveTo(0, horizonY)
+            ctx.lineTo(canvas.width, horizonY)
+            ctx.stroke()
+            
+            // 主平台渐变（伪3D深度效果）
+            const gradient = ctx.createLinearGradient(0, groundY - 50, 0, canvas.height)
+            gradient.addColorStop(0, '#8B7355')
+            gradient.addColorStop(0.3, '#7B6345')
+            gradient.addColorStop(1, '#6B5B35')
+            ctx.fillStyle = gradient
+            
+            // 绘制透视网格线增强3D效果
+            ctx.strokeStyle = 'rgba(91, 75, 53, 0.2)'
+            ctx.lineWidth = 0.5
+            
+            // 水平网格线
+            for (let i = 0; i <= 10; i++) {
+                const y = groundY + (canvas.height - groundY) * i / 10
+                const perspective = this.pseudo3D.vanishingPoint.y * canvas.height
+                const factor = (y - perspective) / (canvas.height - perspective)
+                
+                ctx.beginPath()
+                ctx.moveTo(0, y)
+                ctx.lineTo(canvas.width, y)
+                ctx.stroke()
+            }
+            
+            // 垂直透视线
+            for (let i = 0; i <= 20; i++) {
+                const x = canvas.width * i / 20
+                const vpX = this.pseudo3D.vanishingPoint.x * canvas.width
+                
+                ctx.beginPath()
+                ctx.moveTo(x, groundY)
+                ctx.lineTo(vpX, horizonY)
+                ctx.stroke()
+            }
+            
+            // 主平台
+            ctx.fillRect(0, groundY, platformWidth, canvas.height - groundY)
+            
+            // 平台边缘高亮
+            ctx.strokeStyle = '#9B8365'
+            ctx.lineWidth = 2
+            ctx.beginPath()
+            ctx.moveTo(0, groundY)
+            ctx.lineTo(platformWidth, groundY)
+            ctx.stroke()
+            
+            ctx.restore()
+        }
     }
     
     /**
@@ -1108,34 +1364,114 @@ export default class DominoChainGame extends SubGameBase {
     }
     
     /**
-     * 绘制骨牌
+     * 绘制骨牌（2D模式）
      */
     drawDominoes() {
         const ctx = this.ctx
         
         // 按Y坐标排序，实现正确的遮挡关系
-        const sortedDominoes = [...this.dominoes].sort((a, b) => a.y - b.y)
+        const sortedDominoes = [...this.dominoes].sort((a, b) => {
+            if (this.is2DMode) {
+                // 2D模式：简单的Y坐标排序
+                return a.y - b.y
+            } else {
+                // 伪3D模式：考虑伪3D深度排序
+                const depthA = this.calculatePseudo3DDepth(a.y)
+                const depthB = this.calculatePseudo3DDepth(b.y)
+                return depthA - depthB
+            }
+        })
         
         sortedDominoes.forEach(domino => {
+            // 转换为屏幕坐标
+            const screenPos = this.worldToScreen(domino.x, domino.y)
+            
+            // 计算缩放（2D模式使用固定缩放）
+            const scale = this.is2DMode ? 1.0 : this.calculatePseudo3DScale(domino.y)
+            
             ctx.save()
-            ctx.translate(domino.x, domino.y)
+            ctx.translate(screenPos.x, screenPos.y)
             ctx.rotate(domino.angle)
+            ctx.scale(scale, scale)
             
             // 骨牌阴影
             ctx.fillStyle = 'rgba(0, 0, 0, 0.2)'
             ctx.fillRect(-domino.width/2 + 2, -domino.height/2 + 2, domino.width, domino.height)
             
-            // 骨牌主体
-            ctx.fillStyle = domino.color
+            // 骨牌主体（预先摆放的用不同颜色）
+            if (domino.isPreplaced) {
+                // 预先摆放的骨牌用稍微暗一点的颜色
+                ctx.fillStyle = this.adjustColorBrightness(domino.color, -20)
+            } else {
+                ctx.fillStyle = domino.color
+            }
             ctx.fillRect(-domino.width/2, -domino.height/2, domino.width, domino.height)
             
-            // 骨牌边框
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)'
-            ctx.lineWidth = 1
-            ctx.strokeRect(-domino.width/2, -domino.height/2, domino.width, domino.height)
+            // 骨牌高光（简化版）
+            if (this.is2DMode) {
+                // 2D模式：简单高光
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+                ctx.fillRect(-domino.width/2, -domino.height/2, domino.width, domino.height/4)
+            } else {
+                // 伪3D模式：渐变高光
+                const highlight = ctx.createLinearGradient(-domino.width/2, -domino.height/2, -domino.width/2, 0)
+                highlight.addColorStop(0, 'rgba(255, 255, 255, 0.3)')
+                highlight.addColorStop(1, 'rgba(255, 255, 255, 0)')
+                ctx.fillStyle = highlight
+                ctx.fillRect(-domino.width/2, -domino.height/2, domino.width, domino.height/3)
+            }
+            
+            // 骨牌边框（预先摆放的用虚线）
+            if (domino.isPreplaced) {
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)'
+                ctx.lineWidth = 1
+                ctx.setLineDash([3, 3])
+                ctx.strokeRect(-domino.width/2, -domino.height/2, domino.width, domino.height)
+                ctx.setLineDash([])
+            } else {
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)'
+                ctx.lineWidth = 1
+                ctx.strokeRect(-domino.width/2, -domino.height/2, domino.width, domino.height)
+            }
             
             ctx.restore()
         })
+    }
+    
+    /**
+     * 计算伪3D深度
+     */
+    calculatePseudo3DDepth(y) {
+        const canvas = this.canvas
+        const horizonY = canvas.height * this.pseudo3D.horizonY
+        return (y - horizonY) / (canvas.height - horizonY)
+    }
+    
+    /**
+     * 计算伪3D缩放
+     */
+    calculatePseudo3DScale(y) {
+        const depth = this.calculatePseudo3DDepth(y)
+        return 0.8 + depth * 0.4 // 深度越远，缩放越小
+    }
+    
+    /**
+     * 调整颜色亮度
+     */
+    adjustColorBrightness(color, amount) {
+        // 将hex颜色转换为RGB
+        const hex = color.replace('#', '')
+        const r = parseInt(hex.substr(0, 2), 16)
+        const g = parseInt(hex.substr(2, 2), 16)
+        const b = parseInt(hex.substr(4, 2), 16)
+        
+        // 调整亮度
+        const newR = Math.max(0, Math.min(255, r + amount))
+        const newG = Math.max(0, Math.min(255, g + amount))
+        const newB = Math.max(0, Math.min(255, b + amount))
+        
+        // 转换回hex
+        return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`
     }
     
     /**
@@ -1171,6 +1507,25 @@ export default class DominoChainGame extends SubGameBase {
     drawDragPreview() {
         const ctx = this.ctx
         
+        // 绘制吸附位置指示器
+        if (this.dragPreview.showSnapIndicator && this.dragPreview.snappedX !== undefined) {
+            const snappedScreenPos = this.worldToScreen(this.dragPreview.snappedX, this.dragPreview.snappedY)
+            
+            // 绘制吸附网格点
+            ctx.fillStyle = 'rgba(76, 175, 80, 0.6)'
+            ctx.beginPath()
+            ctx.arc(snappedScreenPos.x, snappedScreenPos.y, 3, 0, Math.PI * 2)
+            ctx.fill()
+            
+            // 绘制吸附框
+            ctx.strokeStyle = 'rgba(76, 175, 80, 0.8)'
+            ctx.lineWidth = 2
+            ctx.setLineDash([5, 5])
+            ctx.strokeRect(snappedScreenPos.x - 10, snappedScreenPos.y - 15, 20, 30)
+            ctx.setLineDash([])
+        }
+        
+        // 绘制拖拽预览骨牌
         ctx.save()
         ctx.globalAlpha = this.dragPreview.alpha
         ctx.translate(this.dragPreview.x, this.dragPreview.y)
@@ -1195,8 +1550,8 @@ export default class DominoChainGame extends SubGameBase {
         const ctx = this.ctx
         const canvas = this.canvas
         
-        // 道具区背景
-        const inventoryY = canvas.height - 80
+        // 道具区背景（上移）
+        const inventoryY = canvas.height - 120
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
         ctx.fillRect(0, inventoryY, canvas.width, 80)
         
@@ -1351,11 +1706,11 @@ export default class DominoChainGame extends SubGameBase {
         // 操作提示
         if (!this.isSimulating) {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
-            ctx.fillRect(0, canvas.height - 110, canvas.width, 30)
+            ctx.fillRect(0, canvas.height - 150, canvas.width, 30) // 上移到-150
             ctx.fillStyle = 'white'
             ctx.font = '12px Arial'
             ctx.textAlign = 'center'
-            ctx.fillText('拖拽底部骨牌到场地进行摆放，连接起点到终点', canvas.width / 2, canvas.height - 90)
+            ctx.fillText('拖拽底部骨牌到场地进行摆放，连接起点到终点', canvas.width / 2, canvas.height - 130)
         }
     }
     
