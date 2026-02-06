@@ -13,6 +13,7 @@ export default class EventManager {
         this.gameInfo = mainInstance.gameInfo; // 游戏UI实例
         this.camera = mainInstance.camera; // 相机实例
         this.guide = mainInstance.guide; // 新手引导实例
+        this.menu = mainInstance.menu; // 菜单实例
 
         // 子游戏（可选）
         this.subGame = null
@@ -213,6 +214,20 @@ export default class EventManager {
             this.handleGuideClick(x, y);
             return;
         }
+
+        // 处理菜单触摸事件（优先级最高）
+        if (this.menu && this.databus.gameState === 'menu') {
+            const menuAction = this.menu.handleClick(x, y);
+            if (menuAction) {
+                this.handleMenuAction(menuAction);
+                return;
+            }
+            
+            // 更新菜单悬停状态
+            this.menu.handleMouseMove(x, y);
+            return;
+        }
+
         // 检查是否点击了广告按钮
         if (this.checkAdButtonClick(x, y)) {
             this.handleAdButtonClick()
@@ -487,24 +502,84 @@ export default class EventManager {
      * 处理菜单动作
      */
     handleMenuAction(action) {
-        this.closeAllModals();
-
+        console.log('处理菜单动作:', action);
+        
         switch (action) {
-            case 'claim':
-                this.main.claimPoints();
-                break;
-            case 'start':
+            case 'startGame':
+                // 启动主游戏
                 this.main.startBetting();
                 break;
-            case 'pause':
-                this.main.togglePause();
+                
+            case 'quickChallenge':
+                // 快速挑战 - 启动LuckyDomino游戏
+                this.main.startLuckyDominoGame();
                 break;
-            case 'restart':
-                this.main.restartGame();
+                
+            case 'collection':
+                // 我的图鉴 - 开发中
+                this.showDevNotice('图鉴系统');
                 break;
-            case 'help':
-                this.gameInfo.uiPositions.helpModal.visible = true;
+                
+            case 'creativeWorkshop':
+                // 创意工坊 - 开发中
+                this.showDevNotice('创意工坊');
                 break;
+                
+            case 'myStudio':
+                // 我的工作室 - 开发中
+                this.showDevNotice('工作室');
+                break;
+                
+            case 'task':
+                // 任务系统 - 开发中
+                this.showDevNotice('任务系统');
+                break;
+                
+            case 'shop':
+                // 商店系统 - 开发中
+                this.showDevNotice('商店系统');
+                break;
+                
+            case 'friends':
+                // 好友系统 - 开发中
+                this.showDevNotice('好友系统');
+                break;
+                
+            case 'ranking':
+                // 排行榜 - 开发中
+                this.showDevNotice('排行榜');
+                break;
+                
+            case 'settings':
+                // 设置 - 开发中
+                this.showDevNotice('设置');
+                break;
+                
+            case 'mail':
+                // 邮件 - 开发中
+                this.showDevNotice('邮件系统');
+                break;
+                
+            case 'dailySignInSuccess':
+                // 每日签到成功
+                wx.showToast({
+                    title: '签到成功！',
+                    icon: 'success',
+                    duration: 2000
+                });
+                break;
+                
+            case 'dailySignInAlready':
+                // 今日已签到
+                wx.showToast({
+                    title: '今日已签到',
+                    icon: 'none',
+                    duration: 1500
+                });
+                break;
+                
+            default:
+                console.log('未知菜单动作:', action);
         }
     }
 
@@ -536,24 +611,25 @@ export default class EventManager {
     }
 
     /**
+     * 显示开发中提示
+     */
+    showDevNotice(feature) {
+        wx.showModal({
+            title: '开发中',
+            content: `${feature}功能正在开发中，敬请期待！`,
+            showCancel: false,
+            confirmText: '我知道了'
+        });
+    }
+
+    /**
      * 判断是否点击帮助弹窗关闭按钮
      */
     isPointInHelpModalClose(x, y) {
         if (!this.main.gameInfo.uiPositions.helpModal.visible) return false
 
         const closeButton = this.main.gameInfo.uiPositions.helpModal.closeButton
-        return this.main.gameInfo.isPointInButton(x, y, closeButton)
-    }
-    /**
-     * 判断是否点击结果弹窗按钮
-     */
-    isPointInResultModalButton(x, y) {
-        const modalWidth = 400;
-        const modalHeight = 400;
-        const modalX = (SCREEN_WIDTH - modalWidth) / 2;
-        const modalY = (SCREEN_HEIGHT - modalHeight) / 2;
-
-        return x >= modalX + 100 && x <= modalX + 300 &&
-            y >= modalY + 320 && y <= modalY + 370;
+        return x >= closeButton.x && x <= closeButton.x + closeButton.width &&
+            y >= closeButton.y && y <= closeButton.y + closeButton.height
     }
 }

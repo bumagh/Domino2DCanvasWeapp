@@ -101,7 +101,8 @@ export default class Main {
       databus: databus,
       gameInfo: that.gameInfo,
       camera: camera,
-      guide: null
+      guide: null,
+      menu: that.menu
     });
 
     this.eventManager.init()
@@ -174,9 +175,26 @@ export default class Main {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // 绘制菜单界面
-    if (this.menu && typeof this.menu.render === 'function') {
-      this.menu.render(ctx, canvas.width, canvas.height)
+    // 根据游戏状态渲染不同内容
+    if (databus.gameState === 'menu') {
+      // 菜单状态：渲染菜单界面
+      if (this.menu && typeof this.menu.render === 'function') {
+        this.menu.render(ctx, canvas.width, canvas.height)
+      }
+    } else {
+      // 游戏状态：渲染游戏界面
+      // 绘制背景
+      this.bg.render(ctx, camera.offsetY)
+
+      // 绘制游戏UI
+      if (this.gameInfo && typeof this.gameInfo.render === 'function') {
+        this.gameInfo.render(ctx, canvas.width, canvas.height)
+      }
+
+      // 绘制用户信息
+      if (this.userInfo && typeof this.userInfo.render === 'function') {
+        this.userInfo.render(ctx, canvas.width, canvas.height)
+      }
     }
   }
 
@@ -215,6 +233,9 @@ export default class Main {
    * 开始助力流程
    */
   startBetting() {
+    // 从菜单状态切换到游戏状态
+    databus.gameState = 'idle'
+    
     try {
       wx.requirePrivacyAuthorize({
         success: res => {
@@ -344,8 +365,8 @@ export default class Main {
     this.subGame = null
     this.lastFrameTime = 0
 
-    // 恢复主游戏状态
-    databus.gameState = 'idle'
+    // 恢复菜单状态
+    databus.gameState = 'menu'
     //恢复背景音乐
     this.bgmAudio?.play?.()
     if (this.eventManager) {
