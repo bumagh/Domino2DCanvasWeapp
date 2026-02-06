@@ -28,7 +28,7 @@ export default class GameInfo {
     this.uiPositions = {
       // 状态栏（只显示积分）
       score: { x: 200, y: 120 },
-      menuButton: { x: 20, y: 50, width: 80, height: 40 },
+      menuButton: { x: 20, y: 150, width: 80, height: 40 },
       startGameButton: { x: 110, y: 300, width: 140, height: 80 },//快速开始游戏按钮，放在屏幕中间
       awesomeCatGameButton: { x: 110, y: 400, width: 140, height: 80 },//快速开始游戏按钮，放在屏幕中间
       adButton: {

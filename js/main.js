@@ -7,6 +7,7 @@ import { SCREEN_WIDTH, SCREEN_HEIGHT } from './render.js';
 import Guide from './game/guide.js'
 import EventManager from './game/eventmanager.js'  // 导入事件管理器
 import UserInfo from './userinfo.js'
+import Menu from './menu.js'
 
 // 子游戏（模块化）
 import AwesomeCatGame from './game/subgames/awesome_cat_game.js'
@@ -22,6 +23,7 @@ let camera = null
 let guide = null
 let eventManager = null  // 事件管理器实例
 let userInfo = null  // 用户信息实例
+let menu = null  // 菜单实例
 let previewStartTime = 0
 const PREVIEW_DURATION = 5000
 
@@ -38,6 +40,7 @@ export default class Main {
   guide = null  // 新手引导
   eventManager = null  // 事件管理器
   userInfo = null  // 用户信息实例
+  menu = null  // 菜单实例
 
   // 子游戏：当前运行的子游戏实例（为 null 表示主游戏模式）
   subGame = null
@@ -80,6 +83,7 @@ export default class Main {
     databus.mapHeight = canvas.height * 10
     this.bg = new Background(canvas.width, canvas.height, databus.mapHeight)
     this.userInfo = new UserInfo(databus)
+    this.menu = new Menu(databus, this.userInfo)
     this.gameInfo = new GameInfo(databus, this.userInfo)
     camera = new Camera(canvas.width, canvas.height, databus.mapHeight)
 
@@ -151,6 +155,10 @@ export default class Main {
       return
     }
 
+    // 更新菜单
+    if (this.menu && typeof this.menu.update === 'function') {
+      this.menu.update(16) // 传入deltaTime
+    }
   }
 
   /**
@@ -166,24 +174,11 @@ export default class Main {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // 绘制背景
-    this.bg.render(ctx, camera.offsetY)
-
-
-    // 绘制游戏UI
-    if (this.gameInfo && typeof this.gameInfo.render === 'function') {
-      this.gameInfo.render(ctx, canvas.width, canvas.height)
+    // 绘制菜单界面
+    if (this.menu && typeof this.menu.render === 'function') {
+      this.menu.render(ctx, canvas.width, canvas.height)
     }
-
-    // 绘制用户信息
-    if (this.userInfo && typeof this.userInfo.render === 'function') {
-      this.userInfo.render(ctx, canvas.width, canvas.height)
-    }
-
-  
   }
-
-
 
   /**
    * 游戏主循环
