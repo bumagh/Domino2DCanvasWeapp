@@ -524,6 +524,37 @@ export default class DominoChainGame extends SubGameBase {
         this.pushingBall.active = true
         this.pushingBall.vx = 3
         this.pushingBall.vy = -2
+        
+        // 找到最左边的骨牌，让小球瞄准它
+        const leftmostDomino = this.findLeftmostDomino()
+        if (leftmostDomino) {
+            this.aimBallAtDomino(leftmostDomino)
+        }
+    }
+    
+    /**
+     * 找到最左边的骨牌
+     */
+    findLeftmostDomino() {
+        if (this.dominoes.length === 0) return null
+        
+        return this.dominoes.reduce((leftmost, domino) => {
+            return domino.x < leftmost.x ? domino : leftmost
+        })
+    }
+    
+    /**
+     * 让小球瞄准指定骨牌
+     */
+    aimBallAtDomino(domino) {
+        const dx = domino.x - this.pushingBall.x
+        const dy = domino.y - this.pushingBall.y
+        const distance = Math.sqrt(dx * dx + dy * dy)
+        
+        // 计算速度方向，让小球飞向骨牌
+        const speed = 5 // 球的速度
+        this.pushingBall.vx = (dx / distance) * speed
+        this.pushingBall.vy = (dy / distance) * speed
     }
     
     /**
@@ -600,6 +631,9 @@ export default class DominoChainGame extends SubGameBase {
                 this.dragPreview.snappedX = snappedPos.x
                 this.dragPreview.snappedY = snappedPos.y
                 this.dragPreview.showSnapIndicator = this.shouldShowSnapIndicator(x, y)
+                
+                // 检查是否在有效放置区域
+                this.dragPreview.canPlace = this.isValidPositionWithSnap(x, y)
             }
             return
         }
@@ -641,7 +675,21 @@ export default class DominoChainGame extends SubGameBase {
         if (this.isDragging) {
             const x = e.changedTouches[0].clientX
             const y = e.changedTouches[0].clientY
-            this.placeDominoFromDrag(x, y)
+            
+            // 检查是否可以放置
+            if (this.dragPreview.canPlace) {
+                // 可以放置，执行放置逻辑
+                this.placeDominoFromDrag(x, y)
+            } else {
+                // 不能放置，道具返回库存
+                this.returnDominoToInventory()
+                wx.showToast({
+                    title: '不能放置在这里',
+                    icon: 'none',
+                    duration: 1000
+                })
+            }
+            
             this.endDrag()
             return
         }
@@ -650,6 +698,24 @@ export default class DominoChainGame extends SubGameBase {
         if (this.isDraggingCamera) {
             this.endCameraDrag()
         }
+    }
+    
+    /**
+     * 返回骨牌到库存
+     */
+    returnDominoToInventory() {
+        if (!this.isDragging || !this.dragPreview) return
+        
+        const dominoType = this.dominoInventory[this.selectedDominoType]
+        if (dominoType) {
+            // 恢复库存
+            dominoType.count++
+        }
+        
+        // 清理拖拽预览
+        this.dragPreview = null
+        this.isDragging = false
+        this.touchStartPos = null
     }
     
     /**
@@ -867,6 +933,9 @@ export default class DominoChainGame extends SubGameBase {
         this.selectedDominoType = slotIndex
         this.touchStartPos = { x, y }
         
+        // 立即减少库存（如果放置失败会返回）
+        dominoType.count--
+        
         // 创建拖拽预览
         this.dragPreview = {
             x: x,
@@ -876,7 +945,8 @@ export default class DominoChainGame extends SubGameBase {
             angle: 0,
             color: dominoType.color,
             type: dominoType.type,
-            alpha: 0.7 // 半透明
+            alpha: 0.7, // 半透明
+            canPlace: false // 初始化为不可放置
         }
     }
     
@@ -970,11 +1040,10 @@ export default class DominoChainGame extends SubGameBase {
         this.dominoes.push(domino)
         this.dominoCount++
         
-        // 减少库存
-        dominoType.count--
-        
         // 显示吸附反馈
         this.showSnapFeedback()
+        
+        // 库存已经在拖拽开始时减少了，这里不需要再次减少
         
         // 如果库存用完，结束拖拽
         if (dominoType.count <= 0) {
@@ -1511,28 +1580,40 @@ export default class DominoChainGame extends SubGameBase {
         if (this.dragPreview.showSnapIndicator && this.dragPreview.snappedX !== undefined) {
             const snappedScreenPos = this.worldToScreen(this.dragPreview.snappedX, this.dragPreview.snappedY)
             
+            // 根据是否可以放置改变颜色
+            const indicatorColor = this.dragPreview.canPlace ? 'rgba(76, 175, 80, 0.6)' : 'rgba(244, 67, 54, 0.6)'
+            
             // 绘制吸附网格点
-            ctx.fillStyle = 'rgba(76, 175, 80, 0.6)'
+            ctx.fillStyle = indicatorColor
             ctx.beginPath()
             ctx.arc(snappedScreenPos.x, snappedScreenPos.y, 3, 0, Math.PI * 2)
             ctx.fill()
             
             // 绘制吸附框
-            ctx.strokeStyle = 'rgba(76, 175, 80, 0.8)'
+            ctx.strokeStyle = indicatorColor.replace('0.6', '0.8')
             ctx.lineWidth = 2
             ctx.setLineDash([5, 5])
             ctx.strokeRect(snappedScreenPos.x - 10, snappedScreenPos.y - 15, 20, 30)
             ctx.setLineDash([])
         }
         
-        // 绘制拖拽预览骨牌
+        // 绘制拖拽预览骨牌（根据是否可以放置调整透明度）
         ctx.save()
-        ctx.globalAlpha = this.dragPreview.alpha
+        ctx.globalAlpha = this.dragPreview.canPlace ? this.dragPreview.alpha : this.dragPreview.alpha * 0.5
         ctx.translate(this.dragPreview.x, this.dragPreview.y)
         ctx.rotate(this.dragPreview.angle)
         
-        // 骨牌主体
-        ctx.fillStyle = this.dragPreview.color
+        // 骨牌主体（根据是否可以放置调整颜色）
+        if (this.dragPreview.canPlace) {
+            ctx.fillStyle = this.dragPreview.color
+        } else {
+            // 不能放置时用红色边框提示
+            ctx.fillStyle = this.dragPreview.color
+            ctx.strokeStyle = 'rgba(244, 67, 54, 0.8)'
+            ctx.lineWidth = 2
+            ctx.strokeRect(-this.dragPreview.width/2 - 1, -this.dragPreview.height/2 - 1, this.dragPreview.width + 2, this.dragPreview.height + 2)
+        }
+        
         ctx.fillRect(-this.dragPreview.width/2, -this.dragPreview.height/2, this.dragPreview.width, this.dragPreview.height)
         
         // 骨牌边框
