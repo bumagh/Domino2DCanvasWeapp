@@ -77,7 +77,7 @@ export default class GameInfo {
 
     // ===== 本局统计（投入/获得） =====
     this.roundBetPoints = 0
-    this.roundWinPoints = 0 // 可按"净获得"或"奖励获得"存；由外部结算逻辑传入
+    this.roundWinPoints = 0 // 可按“净获得”或“奖励获得”存；由外部结算逻辑传入
     this._lastRoundSummary = null
 
     // ===== 结果粒子特效 =====
@@ -223,23 +223,24 @@ export default class GameInfo {
           this._spawnResultParticles(canvasWidth, canvasHeight)
           this._particleBurstDone = true
         }
- 
+  
         // 先画粒子，再画弹窗（粒子在弹窗后方更自然）
         this._updateParticles()
         this._renderParticles(ctx)
- 
+  
         this.drawResultModal(ctx, canvasWidth, canvasHeight)
       } else {
         // 弹窗关闭：允许下次再触发
         this._particleBurstDone = false
         this._particles.length = 0
       }
+    }
   }
 
   /**
  * 设置本局统计（在游戏结算时调用）
  * @param {number} betPoints 本局投入
- * @param {number} winPoints 本局获得（你可传"净变化"或"奖励获得"，自行统一）
+ * @param {number} winPoints 本局获得（你可传“净变化”或“奖励获得”，自行统一）
  */
   setRoundSummary(betPoints = 0, winPoints = 0) {
     this.roundBetPoints = Number(betPoints) || 0
@@ -451,14 +452,13 @@ export default class GameInfo {
       ctx.strokeStyle = canBet ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 0, 0, 0.3)'
       ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight)
 
-      // 按钮文字
-      ctx.fillStyle = canBet ? '#ffffff' : '#ff6666'
-      ctx.font = '16px Arial'
+      // 积分数字
+      ctx.fillStyle = canBet ? '#ffffff' : '#ff8888'
+      ctx.font = '20px Arial'
       ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(amount.toString(), buttonX + buttonWidth / 2, buttonY + buttonHeight / 2)
+      ctx.fillText(`${amount}分`, buttonX + buttonWidth / 2, buttonY + buttonHeight / 2 + 8)
 
-      // 保存按钮信息用于点击检测
+      // 保存按钮位置用于点击检测
       this.betButtons.push({
         x: buttonX,
         y: buttonY,
@@ -469,144 +469,110 @@ export default class GameInfo {
       })
     })
 
-    // 确认和取消按钮
-    const confirmButtonX = x + 20
-    const confirmButtonY = y + 200
-    const cancelButtonX = x + modalWidth - 120
-    const cancelButtonY = y + 200
-    const actionButtonWidth = 100
-    const actionButtonHeight = 40
-
-    // 确认按钮
-    ctx.fillStyle = 'rgba(0, 255, 0, 0.2)'
-    ctx.fillRect(confirmButtonX, confirmButtonY, actionButtonWidth, actionButtonHeight)
-    ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)'
-    ctx.strokeRect(confirmButtonX, confirmButtonY, actionButtonWidth, actionButtonHeight)
-    ctx.fillStyle = '#00ff00'
-    ctx.font = '16px Arial'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('确认', confirmButtonX + actionButtonWidth / 2, confirmButtonY + actionButtonHeight / 2)
-
     // 取消按钮
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'
-    ctx.fillRect(cancelButtonX, cancelButtonY, actionButtonWidth, actionButtonHeight)
-    ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)'
-    ctx.strokeRect(cancelButtonX, cancelButtonY, actionButtonWidth, actionButtonHeight)
-    ctx.fillStyle = '#ff6666'
-    ctx.fillText('取消', cancelButtonX + actionButtonWidth / 2, cancelButtonY + actionButtonHeight / 2)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
+    ctx.fillRect(x + 80, y + 200, modalWidth - 160, 50)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
+    ctx.strokeRect(x + 80, y + 200, modalWidth - 160, 50)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '16px Arial'
+    ctx.fillText('取消', canvasWidth / 2, y + 230)
 
-    // 保存按钮信息
-    this.betButtons.push(
-      {
-        x: confirmButtonX,
-        y: confirmButtonY,
-        width: actionButtonWidth,
-        height: actionButtonHeight,
-        type: 'confirm'
-      },
-      {
-        x: cancelButtonX,
-        y: cancelButtonY,
-        width: actionButtonWidth,
-        height: actionButtonHeight,
-        type: 'cancel'
-      }
-    )
-  }
-
-  /**
-   * 处理助力弹窗点击
-   */
-  handleBetModalClick(x, y, canvasWidth, canvasHeight) {
-    if (!this.uiPositions.betModal.visible) return null
-
-    const modalWidth = 320
-    const modalHeight = 280
-    const modalX = (canvasWidth - modalWidth) / 2
-    const modalY = (canvasHeight - modalHeight) / 2
-
-    // 检查是否点击了按钮
-    for (const button of this.betButtons) {
-      if (x >= button.x && x <= button.x + button.width &&
-          y >= button.y && y <= button.y + button.height) {
-        
-        if (button.type === 'confirm') {
-          // 确认按钮
-          const selectedAmount = this.betButtons.find(b => b.amount && b.canBet)?.amount
-          if (selectedAmount) {
-            this.uiPositions.betModal.visible = false
-            return { type: 'bet', amount: selectedAmount }
-          }
-        } else if (button.type === 'cancel') {
-          // 取消按钮
-          this.uiPositions.betModal.visible = false
-          return { type: 'cancel' }
-        } else if (button.amount && button.canBet) {
-          // 积分按钮
-          this.selectedBetAmount = button.amount
-        }
-        
-        break
-      }
+    // 保存取消按钮位置
+    this.cancelButton = {
+      x: x + 80,
+      y: y + 200,
+      width: modalWidth - 160,
+      height: 50
     }
-
-    return null
   }
 
   /**
    * 绘制帮助弹窗
    */
   drawHelpModal(ctx, canvasWidth, canvasHeight) {
-    const modal = this.uiPositions.helpModal
-    const x = (canvasWidth - modal.modalWidth) / 2
-    const y = (canvasHeight - modal.modalHeight) / 2
+    const modalWidth = 400
+    const modalHeight = 450
+    const x = (canvasWidth - modalWidth) / 2
+    const y = (canvasHeight - modalHeight) / 2
 
     // 背景
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.95)'
-    ctx.fillRect(x, y, modal.modalWidth, modal.modalHeight)
+    ctx.fillStyle = 'rgba(15, 15, 20, 0.98)'
+    ctx.fillRect(x, y, modalWidth, modalHeight)
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'
-    ctx.strokeRect(x, y, modal.modalWidth, modal.modalHeight)
+    ctx.strokeRect(x, y, modalWidth, modalHeight)
 
     // 标题
     ctx.fillStyle = '#ffffff'
-    ctx.font = '24px Arial'
+    ctx.font = '22px Arial'
     ctx.textAlign = 'center'
-    ctx.fillText('游戏帮助', canvasWidth / 2, y + 40)
+    ctx.fillText('游戏规则', canvasWidth / 2, y + 40)
 
-    // 帮助内容
-    ctx.font = '16px Arial'
-    ctx.textAlign = 'left'
-    ctx.fillStyle = '#ffffff'
-
-    const helpText = [
-      '1. 点击滚珠选择你的幸运球',
-      '2. 点击菜单选择助力积分',
-      '3. 点击开始游戏开始挑战',
-      '4. 滚珠掉落获得相应积分',
-      '5. 积分可以用来助力下次游戏'
+    // 规则列表
+    const rules = [
+      '点击心仪的滚珠为其助力并投入积分',
+      '滚珠将在充满障碍的赛道中竞速，到达终点',
+      '第一名：获得 2倍 助力积分奖励',
+      '第二名：获得 1倍 助力积分奖励',
+      '其他名次：将失去投入的助力积分'
     ]
 
-    helpText.forEach((text, index) => {
-      ctx.fillText(text, x + 30, y + 80 + index * 30)
+    ctx.font = '14px Arial'
+    ctx.textAlign = 'left'
+    rules.forEach((rule, index) => {
+      ctx.fillStyle = '#e0e0e0'
+      ctx.fillText(rule, x + 30, y + 80 + index * 30)
     })
+    // 计算关闭按钮位置并保存
+    const closeButton = this.uiPositions.helpModal.closeButton
+    closeButton.x = x + 100
+    closeButton.y = y + 240 + 100
 
-    // 关闭按钮
-    const closeButton = modal.closeButton
-    closeButton.x = x + (modal.modalWidth - closeButton.width) / 2
-    closeButton.y = y + modal.modalHeight - 60
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+    // 绘制关闭按钮
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
     ctx.fillRect(closeButton.x, closeButton.y, closeButton.width, closeButton.height)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
     ctx.strokeRect(closeButton.x, closeButton.y, closeButton.width, closeButton.height)
-
     ctx.fillStyle = '#ffffff'
-    ctx.font = '16px Arial'
     ctx.textAlign = 'center'
-    ctx.fillText('关闭', closeButton.x + closeButton.width / 2, closeButton.y + closeButton.height / 2)
+    ctx.fillText('我明白了', canvasWidth / 2, y + 262 + 100)
+  }
+  /**
+   * 初始化粒子特效
+   */
+  initParticles() {
+    this.particles = [];
+    this.particleCount = 50; // 粒子数量
   }
 
+  /**
+   * 触发粒子特效
+   */
+  triggerParticles(x, y) {
+    for (let i = 0; i < this.particleCount; i++) {
+      this.particles.push({
+        x: x,
+        y: y,
+        vx: (Math.random() - 0.5) * 4, // 随机水平速度
+        vy: (Math.random() - 0.5) * 4, // 随机垂直速度
+        life: Math.random() * 30 + 20, // 粒子寿命
+        color: `rgba(255, ${Math.random() * 255}, 0, 1)` // 随机颜色
+      });
+    }
+  }
+
+
+  /**
+   * 渲染粒子特效
+   */
+  renderParticles(ctx) {
+    this.particles.forEach(p => {
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
   /**
    * 绘制结果弹窗
    */
@@ -617,93 +583,63 @@ export default class GameInfo {
     const y = (canvasHeight - modalHeight) / 2
 
     // 背景
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.95)'
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'
     ctx.fillRect(x, y, modalWidth, modalHeight)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
     ctx.strokeRect(x, y, modalWidth, modalHeight)
 
     // 标题
     ctx.fillStyle = '#ffffff'
-    ctx.font = '28px Arial'
+    ctx.font = '24px Arial'
     ctx.textAlign = 'center'
-    ctx.fillText('游戏结束', canvasWidth / 2, y + 50)
+    ctx.fillText('游戏结束！', canvasWidth / 2, y + 40)
+    // 本局投入/获得
+    const bet = this.roundBetPoints || this.betAmount || 0
+    const win = this.roundWinPoints || 0
 
-    // 显示本局统计
-    ctx.font = '20px Arial'
-    ctx.fillStyle = '#ffff88'
-    ctx.fillText(`本局投入: ${this.roundBetPoints} 积分`, canvasWidth / 2, y + 120)
-    
-    ctx.fillStyle = this.roundWinPoints >= 0 ? '#88ff88' : '#ff8888'
-    ctx.fillText(`本局获得: ${this.roundWinPoints} 积分`, canvasWidth / 2, y + 160)
-
-    const netChange = this.roundWinPoints - this.roundBetPoints
-    ctx.fillStyle = netChange >= 0 ? '#88ff88' : '#ff8888'
-    ctx.fillText(`净变化: ${netChange > 0 ? '+' : ''}${netChange} 积分`, canvasWidth / 2, y + 200)
-
-    // 当前总积分
-    ctx.fillStyle = '#ffffff'
-    ctx.font = '18px Arial'
-    ctx.fillText(`当前总积分: ${this.score}`, canvasWidth / 2, y + 250)
-
-    // 确认按钮
-    const resultButtonX = x + 100
-    const resultButtonY = y + 320
-    const resultButtonWidth = 200
-    const resultButtonHeight = 50
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
-    ctx.fillRect(resultButtonX, resultButtonY, resultButtonWidth, resultButtonHeight)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'
-    ctx.strokeRect(resultButtonX, resultButtonY, resultButtonWidth, resultButtonHeight)
-
-    ctx.fillStyle = '#ffffff'
-    ctx.font = '18px Arial'
+    ctx.font = '16px Arial'
     ctx.textAlign = 'center'
-    ctx.fillText('确定', resultButtonX + resultButtonWidth / 2, resultButtonY + resultButtonHeight / 2)
-  }
 
-  /**
-   * 处理菜单按钮点击
-   */
-  handleMenuButtonClick(x, y) {
-    const button = this.uiPositions.menuButton
-    return x >= button.x && x <= button.x + button.width &&
-           y >= button.y && y <= button.y + button.height
-  }
+    ctx.fillStyle = '#e0e0e0'
+    ctx.fillText(`本局投入: ${bet} 分`, canvasWidth / 2, y + 70)
 
-  /**
-   * 处理开始游戏按钮点击
-   */
-  handleStartGameButtonClick(x, y) {
-    const button = this.uiPositions.startGameButton
-    return x >= button.x && x <= button.x + button.width &&
-           y >= button.y && y <= button.y + button.height
-  }
+    ctx.fillStyle = win >= 0 ? '#00ff99' : '#ff6666'
+    ctx.fillText(`本局获得: ${win} 分`, canvasWidth / 2, y + 95)
+    // 排名信息
+    ctx.font = '16px Arial'
+    this.uiPositions.resultModal.ranking.forEach((ball, index) => {
+      const rankY = y + 120 + index * 40
 
-  /**
-   * 处理多米诺连锁游戏按钮点击
-   */
-  handleDominoChainGameButtonClick(x, y) {
-    const dominoChainGameButton = this.uiPositions.awesomeCatGameButton
-    return this.isPointInButton(x, y, dominoChainGameButton)
-  }
+      // 排名数字
+      ctx.fillStyle = '#999999'
+      ctx.textAlign = 'left'
+      ctx.fillText(`${index + 1}.`, x + 30, rankY)
 
-  /**
-   * 处理菜单弹窗点击
-   */
-  handleMenuModalClick(x, y) {
-    if (!this.uiPositions.menuModal.visible) return null
+      // 滚珠颜色
+      ctx.beginPath()
+      ctx.arc(x + 70, rankY - 5, 8, 0, Math.PI * 2)
+      ctx.fillStyle = ball.color
+      ctx.fill()
 
-    const buttons = this.uiPositions.menuModal.buttons
-    for (const [action, button] of Object.entries(buttons)) {
-      if (x >= button.x && x <= button.x + button.width &&
-          y >= button.y && y <= button.y + button.height) {
-        this.selectedMenuItem = action
-        return action
+      // 滚珠信息
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText(`滚珠 ${ball.id + 1}`, x + 90, rankY)
+
+      if (ball.hasBet) {
+        ctx.fillStyle = '#ffff00'
+        ctx.textAlign = 'right'
+        ctx.fillText(`助力: ${this.betAmount}分`, x + modalWidth - 30, rankY)
       }
-    }
+    })
 
-    return null
+    // 再玩一次按钮
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
+    ctx.fillRect(x + 100, y + 320, modalWidth - 200, 50)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
+    ctx.strokeRect(x + 100, y + 320, modalWidth - 200, 50)
+    ctx.fillStyle = '#ffffff'
+    ctx.textAlign = 'center'
+    ctx.fillText('再玩一次', canvasWidth / 2, y + 345)
   }
 
   /**
@@ -711,6 +647,122 @@ export default class GameInfo {
    */
   isPointInButton(x, y, button) {
     return x >= button.x && x <= button.x + button.width &&
-           y >= button.y && y <= button.y + button.height
+      y >= button.y && y <= button.y + button.height
+  }
+
+  /**
+   * 处理菜单按钮点击
+   */
+  handleMenuButtonClick(x, y) {
+    const menuButton = this.uiPositions.menuButton
+    return this.isPointInButton(x, y, menuButton)
+  }
+  /**
+   * 处理快速开始游戏按钮点击
+   */
+  handleStartGameButtonClick(x, y) {
+    const startGameButton = this.uiPositions.startGameButton
+    return this.isPointInButton(x, y, startGameButton)
+  }
+  /**
+   * 处理多米诺连锁游戏按钮点击
+   */
+  handleDominoChainGameButtonClick(x, y) {
+    const dominoChainGameButton = this.uiPositions.awesomeCatGameButton
+    return this.isPointInButton(x, y, dominoChainGameButton)
+  }
+  /**
+   * 处理菜单弹窗点击
+   */
+  handleMenuModalClick(x, y) {
+    if (!this.uiPositions.menuModal.visible) return null
+
+    const buttons = this.uiPositions.menuModal.buttons
+
+    // 高亮选中的按钮
+    if (this.isPointInButton(x, y, buttons.claim)) {
+      this.selectedMenuItem = 'claim'
+      // 只有可以领取时才返回'claim'
+      return this.canClaimPoints() ? 'claim' : null
+    } else if (this.isPointInButton(x, y, buttons.start)) {
+      this.selectedMenuItem = 'start'
+      return 'start'
+    } else if (this.isPointInButton(x, y, buttons.pause)) {
+      this.selectedMenuItem = 'pause'
+      return 'pause'
+    } else if (this.isPointInButton(x, y, buttons.restart)) {
+      this.selectedMenuItem = 'restart'
+      return 'restart'
+    } else if (this.isPointInButton(x, y, buttons.help)) {
+      this.selectedMenuItem = 'help'
+      return 'help'
+    } else if (this.isPointInButton(x, y, buttons.closeMenu)) {
+      this.selectedMenuItem = 'closeMenu'
+      return 'closeMenu'
+    }
+
+    this.selectedMenuItem = null
+    return null
+  }
+
+  /**
+   * 处理助力弹窗点击
+   */
+  handleBetModalClick(x, y, canvasWidth, canvasHeight) {
+    if (!this.uiPositions.betModal.visible) return null
+
+    // 检查是否点击了积分选择按钮
+    if (this.betButtons) {
+      for (let i = 0; i < this.betButtons.length; i++) {
+        const button = this.betButtons[i]
+        if (this.isPointInButton(x, y, button) && button.canBet) {
+          return {
+            type: 'bet',
+            amount: button.amount
+          }
+        }
+      }
+    }
+
+    // 检查是否点击了取消按钮
+    if (this.cancelButton && this.isPointInButton(x, y, this.cancelButton)) {
+      return { type: 'cancel' }
+    }
+
+    return null
+  }
+
+  /**
+   * 处理帮助弹窗点击
+   */
+  handleHelpModalClick(x, y, canvasWidth, canvasHeight) {
+    if (!this.uiPositions.helpModal.visible) return false
+
+    const modalWidth = 400
+    const modalHeight = 320
+    const modalX = (canvasWidth - modalWidth) / 2
+    const modalY = (canvasHeight - modalHeight) / 2
+
+    // 检查是否点击了关闭按钮
+    return x >= modalX + 100 && x <= modalX + 300 &&
+      y >= modalY + 240 && y <= modalY + 280
+  }
+
+  /**
+   * 处理结果弹窗点击
+   */
+  handleResultModalClick(x, y, canvasWidth, canvasHeight) {
+    if (!this.uiPositions.resultModal.visible) return false
+
+    const modalWidth = 400
+    const modalHeight = 400
+    const modalX = (canvasWidth - modalWidth) / 2
+    const modalY = (canvasHeight - modalHeight) / 2
+
+    // 检查是否点击了再玩一次按钮
+    return x >= modalX + 100 && x <= modalX + 300 &&
+      y >= modalY + 320 && y <= modalY + 370
+
+
   }
 }

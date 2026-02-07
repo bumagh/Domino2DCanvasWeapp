@@ -19,18 +19,9 @@ export default class EventManager {
         this.subGame = null
 
         // 绑定方法的this上下文
-        // this.handleTouchStart = this.handleTouchStart.bind(this);
-        // ... 原有代码 ...
-        this.videoAd = null // 激励视频广告实例
-        this.interstitialAd = null
-        this.touchStartHandler = this.handleTouchStart.bind(this) // 绑定this
-        // 定义插屏广告
-        // 创建 Banner 广告实例，提前初始化
-        this.bannerAd = null
-
-
-
+        this.touchStartHandler = this.handleTouchStart.bind(this)
     }
+
     setSubGame(subGameInstance) {
         this.subGame = subGameInstance
     }
@@ -46,156 +37,8 @@ export default class EventManager {
         wx.onTouchStart(this.touchStartHandler)
 
         console.log('事件管理器初始化完成');
-        // 初始化激励视频广告
-        this.initRewardedVideoAd()
-        this.initInterstitialAd()
-        this.initBannerAd()
-        if (this.subGame != null) {
-
-        }
-    }
-    initBannerAd() {
-        this.bannerAd = wx.createBannerAd({
-            adUnitId: 'adunit-680ebf307f326a0f',
-            style: {
-                left: this.canvas.width / 2 - 175,
-                top: this.canvas.height - 150,
-                width: 350
-            }
-        })
-        // 监听 banner 广告加载事件
-        this.bannerAd.onLoad(() => {
-            console.log('banner 广告加载成功')
-        })
-        // 监听 banner 广告错误事件
-        this.bannerAd.onError(err => {
-            console.error(err.errMsg)
-        })
-    }
-    initInterstitialAd() {
-        // 创建插屏广告实例，提前初始化
-        if (wx.createInterstitialAd) {
-            this.interstitialAd = wx.createInterstitialAd({
-                adUnitId: 'adunit-fcad3142b45b5aa6'
-            })
-            this.interstitialAd.onLoad(() => {
-                console.log('插屏 广告加载成功')
-            })
-            this.interstitialAd.onError(() => {
-                console.log('插屏 广告加载失败')
-            })
-        }
     }
 
-
-    initRewardedVideoAd() {
-        // 创建激励视频广告实例
-        if (wx.createRewardedVideoAd) {
-            this.videoAd = wx.createRewardedVideoAd({
-                adUnitId: 'adunit-6ff1555f4a0af86e'
-            })
-
-            // 监听广告加载
-            this.videoAd.onLoad(() => {
-                console.log('激励视频广告加载成功')
-                this.gameInfo.isAdLoading = false
-                this.gameInfo.uiPositions.adButton.visible = true
-            })
-
-            // 监听广告错误
-            this.videoAd.onError((err) => {
-                console.error('激励视频广告加载失败', err)
-                this.gameInfo.isAdLoading = false
-                wx.showToast({
-                    title: '广告加载失败，请稍后重试',
-                    icon: 'none'
-                })
-                this.gameInfo.uiPositions.adButton.visible = true
-
-            })
-
-            // 监听广告关闭
-            this.videoAd.onClose((res) => {
-                if (res && res.isEnded) {
-                    // 正常播放结束，发放奖励
-                    this.handleAdReward()
-                } else {
-                    // 用户中途关闭
-                    wx.showToast({
-                        title: '未完整观看，无法获得奖励',
-                        icon: 'none'
-                    })
-                }
-            })
-        }
-    }
-
-    handleAdButtonClick() {
-        if (!this.gameInfo.canWatchAd()) {
-            if (this.gameInfo.isAdCoolingDown()) {
-                const remainingTime = Math.ceil((this.gameInfo.adCooldown - (Date.now() - this.gameInfo.lastAdTime)) / 1000)
-                wx.showToast({
-                    title: `请等待${remainingTime}秒后再观看广告`,
-                    icon: 'none'
-                })
-            }
-            return
-        }
-
-        if (!this.videoAd) {
-            wx.showToast({
-                title: '广告功能暂不可用',
-                icon: 'none'
-            })
-            return
-        }
-
-        // 标记广告加载中
-        this.gameInfo.isAdLoading = true
-
-        // 显示广告
-        this.videoAd.show().catch(() => {
-            // 失败重试，先加载广告
-            this.videoAd.load()
-                .then(() => {
-                    this.videoAd.show()
-                })
-                .catch(err => {
-                    console.error('激励视频广告显示失败', err)
-                    this.gameInfo.isAdLoading = false
-                    wx.showToast({
-                        title: '广告加载失败，请稍后重试',
-                        icon: 'none'
-                    })
-                })
-        })
-    }
-    handleAdReward() {
-        const rewardAmount = this.gameInfo.adRewardAmount
-        this.databus.score += rewardAmount
-        this.gameInfo.score = this.databus.score
-
-        // 启动冷却
-        this.gameInfo.startAdCooldown()
-
-        wx.showToast({
-            title: `观看广告成功，获得${rewardAmount}积分`,
-            icon: 'success',
-            duration: 2000
-        })
-
-        // 可以添加额外的动画效果
-        // this.showRewardAnimation(rewardAmount)
-    }
-    checkAdButtonClick(x, y) {
-        const adButton = this.gameInfo.uiPositions.adButton
-        if (!adButton || !adButton.visible) return false
-
-        return x >= adButton.x &&
-            x <= adButton.x + adButton.width &&
-            y >= adButton.y &&
-            y <= adButton.y + adButton.height
-    }
     /**
      * 处理触摸开始事件
      */
@@ -228,33 +71,27 @@ export default class EventManager {
             return;
         }
 
-        // 检查是否点击了广告按钮
-        if (this.checkAdButtonClick(x, y)) {
-            // this.handleAdButtonClick()
-            return
-        }
         // 处理UI按钮点击
         if (this.gameInfo.handleMenuButtonClick(x, y)) {
-
             // this.toggleMenuModal();
             return;
         }
+        
         if (this.gameInfo.handleStartGameButtonClick(x, y) && (this.databus.gameState === 'idle' || this.guide.getCurrentStep().id === 3)) {
             this.main.startBetting();
             return;
         }
-        if (this.gameInfo.handleAwesomeCatGameButtonClick(x, y) && (this.databus.gameState === 'idle')) {
-            // this.main.startAwesomeCatGame();
-            // this.main.startSpinDominoGame();
-            this.main.startLuckyDominoGame();
-
+        
+        if (this.gameInfo.handleDominoChainGameButtonClick(x, y) && (this.databus.gameState === 'idle')) {
+            // 启动多米诺连锁游戏
+            this.main.startDominoChainGame();
             return;
         }
+
         // 处理菜单弹窗点击
         if (this.gameInfo.uiPositions.menuModal.visible) {
             const menuAction = this.gameInfo.handleMenuModalClick(x, y);
             if (menuAction) {
-
                 this.handleButtonAction(menuAction);
                 return;
             }
@@ -273,8 +110,6 @@ export default class EventManager {
         if (this.gameInfo.uiPositions.helpModal.visible) {
             if (this.isPointInHelpModalClose(x, y)) {
                 this.gameInfo.uiPositions.helpModal.visible = false;
-                this.bannerAd.hide();
-
             }
             return;
         }
@@ -282,21 +117,7 @@ export default class EventManager {
         // 处理结果弹窗点击
         if (this.gameInfo.uiPositions.resultModal.visible) {
             if (this.isPointInResultModalButton(x, y)) {
-                // 在适合的场景显示插屏广告
-                if (this.interstitialAd) {
-                    this.interstitialAd.show().catch((err) => {
-                        console.error('插屏广告显示失败', err)
-                        this.main.restartGame();
-
-                    })
-                    this.interstitialAd.onClose(res => {
-                        this.main.restartGame();
-                        console.log('插屏 广告关闭')
-                    })
-                } else {
-                    this.main.restartGame();
-
-                }
+                this.main.restartGame();
             }
             return;
         }
@@ -395,8 +216,8 @@ export default class EventManager {
     }
 
     /**
-   * 引导期间的快速开始游戏按钮点击
-   */
+     * 引导期间的快速开始游戏按钮点击
+     */
     handleGuideStartGameClick(x, y) {
         if (this.gameInfo.handleStartGameButtonClick(x, y) && this.databus.gameState === 'idle') {
             this.main.startBetting();
@@ -406,23 +227,6 @@ export default class EventManager {
                 this.guide.next();
             }, 300);
             return;
-        }
-    }
-    /**
-     * 引导期间的开始按钮点击
-     */
-    handleGuideStartClick(x, y) {
-        if (this.gameInfo.uiPositions.menuModal.visible) {
-            const menuAction = this.gameInfo.handleMenuModalClick(x, y);
-            if (menuAction === 'start') {
-                this.handleMenuAction(menuAction);
-
-                // 开始游戏后，进入下一步
-                setTimeout(() => {
-                    this.guide.next();
-                }, 500);
-                return;
-            }
         }
     }
 
@@ -460,42 +264,29 @@ export default class EventManager {
     }
 
     /**
-     * 处理按钮动作
+     * 判断点是否在帮助弹窗关闭按钮内
      */
-    handleButtonAction(action) {
-        switch (action) {
-            case 'claim':
-                this.main.claimPoints();
-                break;
-            case 'help':
-                this.gameInfo.uiPositions.helpModal.visible = true;
+    isPointInHelpModalClose(x, y) {
+        const modalWidth = 400
+        const modalHeight = 320
+        const modalX = (this.canvas.width - modalWidth) / 2
+        const modalY = (this.canvas.height - modalHeight) / 2
 
-                break;
-            case 'start':
-                this.main.startBetting();
-                this.gameInfo.uiPositions.menuModal.visible = false;
-                break;
-            case 'pause':
-                this.main.togglePause();
-                break;
-            case 'restart':
-                this.main.restartGame();
-                break;
-            case 'closeMenu':
-                this.toggleMenuModal();
-                break;
-        }
+        return x >= modalX + 100 && x <= modalX + 300 &&
+            y >= modalY + 240 && y <= modalY + 280
     }
 
     /**
-     * 处理助力动作
+     * 判断点是否在结果弹窗按钮内
      */
-    handleBetAction(betAction) {
-        if (betAction.type === 'bet') {
-            this.main.confirmBet(betAction.amount);
-        } else if (betAction.type === 'cancel') {
-            this.main.cancelBet();
-        }
+    isPointInResultModalButton(x, y) {
+        const modalWidth = 400
+        const modalHeight = 400
+        const modalX = (this.canvas.width - modalWidth) / 2
+        const modalY = (this.canvas.height - modalHeight) / 2
+
+        return x >= modalX + 100 && x <= modalX + 300 &&
+            y >= modalY + 320 && y <= modalY + 370
     }
 
     /**
@@ -509,128 +300,74 @@ export default class EventManager {
                 // 启动多米诺连锁游戏
                 this.main.startDominoChainGame();
                 break;
-
-            case 'quickChallenge':
-                // 快速挑战 -
-                this.showDevNotice('快速挑战');
-
+            case 'restart':
+                this.main.restartGame();
                 break;
-
-            case 'collection':
-                // 我的图鉴 - 开发中
-                this.showDevNotice('图鉴系统');
+            case 'closeMenu':
+                this.toggleMenuModal();
                 break;
-
-            case 'creativeWorkshop':
-                // 创意工坊 - 开发中
-                this.showDevNotice('创意工坊');
+            case 'pause':
+                this.main.togglePause();
                 break;
-
-            case 'myStudio':
-                // 我的工作室 - 开发中
-                this.showDevNotice('工作室');
+            case 'help':
+                this.showHelp();
                 break;
-
-            case 'task':
-                // 任务系统 - 开发中
-                this.showDevNotice('任务系统');
+            case 'claim':
+                this.claimPoints();
                 break;
-
-            case 'shop':
-                // 商店系统 - 开发中
-                this.showDevNotice('商店系统');
-                break;
-
-            case 'friends':
-                // 好友系统 - 开发中
-                this.showDevNotice('好友系统');
-                break;
-
-            case 'ranking':
-                // 排行榜 - 开发中
-                this.showDevNotice('排行榜');
-                break;
-
-            case 'settings':
-                // 设置 - 开发中
-                this.showDevNotice('设置');
-                break;
-
-            case 'mail':
-                // 邮件 - 开发中
-                this.showDevNotice('邮件系统');
-                break;
-
-            case 'dailySignInSuccess':
-                // 每日签到成功
-                wx.showToast({
-                    title: '签到成功！',
-                    icon: 'success',
-                    duration: 2000
-                });
-                break;
-
-            case 'dailySignInAlready':
-                // 今日已签到
-                wx.showToast({
-                    title: '今日已签到',
-                    icon: 'none',
-                    duration: 1500
-                });
-                break;
-
-            default:
-                console.log('未知菜单动作:', action);
         }
     }
 
     /**
-     * 切换菜单弹窗显示/隐藏
+     * 处理助力动作
+     */
+    handleBetAction(action) {
+        console.log('处理助力动作:', action);
+
+        switch (action.type) {
+            case 'bet':
+                this.databus.betAmount = action.amount;
+                this.gameInfo.betAmount = action.amount;
+                this.databus.gameState = 'betting';
+                this.databus.selectedBall.hasBet = true;
+                this.databus.selectedBall.betAmount = action.amount;
+                break;
+            case 'cancel':
+                this.databus.gameState = 'idle';
+                break;
+        }
+    }
+
+    /**
+     * 切换菜单弹窗
      */
     toggleMenuModal() {
         this.gameInfo.uiPositions.menuModal.visible = !this.gameInfo.uiPositions.menuModal.visible;
-        if (this.gameInfo.uiPositions.menuModal.visible) {
-            this.bannerAd.show().then(() => {
-                console.log('banner 广告显示成功')
+    }
+
+    /**
+     * 显示帮助
+     */
+    showHelp() {
+        this.gameInfo.uiPositions.helpModal.visible = true;
+    }
+
+    /**
+     * 领取积分
+     */
+    claimPoints() {
+        const points = this.gameInfo.claimablePoints;
+        if (points > 0) {
+            this.databus.score += points;
+            this.gameInfo.score = this.databus.score;
+            this.gameInfo.totalClaimedPoints += points;
+            this.gameInfo.claimablePoints = 0;
+
+            wx.showToast({
+                title: `成功领取${points}积分`,
+                icon: 'success',
+                duration: 2000
             });
-        } else {
-            this.bannerAd.hide();
         }
-        // 关闭其他弹窗
-        this.gameInfo.uiPositions.betModal.visible = false;
-        this.gameInfo.uiPositions.helpModal.visible = false;
-    }
-
-    /**
-     * 关闭所有弹窗
-     */
-    closeAllModals() {
-        this.gameInfo.uiPositions.menuModal.visible = false;
-        this.gameInfo.uiPositions.betModal.visible = false;
-        this.gameInfo.uiPositions.helpModal.visible = false;
-        this.gameInfo.selectedMenuItem = null;
-    }
-
-    /**
-     * 显示开发中提示
-     */
-    showDevNotice(feature) {
-        wx.showModal({
-            title: '开发中',
-            content: `${feature}功能正在开发中，敬请期待！`,
-            showCancel: false,
-            confirmText: '我知道了'
-        });
-    }
-
-    /**
-     * 判断是否点击帮助弹窗关闭按钮
-     */
-    isPointInHelpModalClose(x, y) {
-        if (!this.main.gameInfo.uiPositions.helpModal.visible) return false
-
-        const closeButton = this.main.gameInfo.uiPositions.helpModal.closeButton
-        return x >= closeButton.x && x <= closeButton.x + closeButton.width &&
-            y >= closeButton.y && y <= closeButton.y + closeButton.height
     }
 }
