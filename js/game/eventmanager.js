@@ -1,5 +1,6 @@
 // game/eventmanager.js
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '../render';
+import ShareManager from './share';
 
 /**
  * 游戏事件管理器
@@ -20,6 +21,11 @@ export default class EventManager {
 
         // 绑定方法的this上下文
         this.touchStartHandler = this.handleTouchStart.bind(this)
+        this.touchMoveHandler = this.handleTouchMove.bind(this)
+        this.touchEndHandler = this.handleTouchEnd.bind(this)
+
+        // 初始化分享管理器
+        this.shareManager = new ShareManager()
     }
 
     setSubGame(subGameInstance) {
@@ -31,12 +37,36 @@ export default class EventManager {
      */
     init() {
         // 移除旧的事件监听器（如果有）
-        wx.offTouchStart();
+        wx.offTouchStart()
+        wx.offTouchMove()
+        wx.offTouchEnd()
 
-        // 只注册一次，并确保回调 this 已绑定
+        // 注册触摸事件
         wx.onTouchStart(this.touchStartHandler)
+        wx.onTouchMove(this.touchMoveHandler)
+        wx.onTouchEnd(this.touchEndHandler)
 
         console.log('事件管理器初始化完成');
+    }
+
+    /**
+     * 处理触摸移动事件
+     */
+    handleTouchMove(e) {
+        // 子游戏优先处理
+        if (this.subGame && typeof this.subGame.onTouchMove === 'function') {
+            this.subGame.onTouchMove(e)
+        }
+    }
+
+    /**
+     * 处理触摸结束事件
+     */
+    handleTouchEnd(e) {
+        // 子游戏优先处理
+        if (this.subGame && typeof this.subGame.onTouchEnd === 'function') {
+            this.subGame.onTouchEnd(e)
+        }
     }
 
     /**
@@ -116,7 +146,10 @@ export default class EventManager {
 
         // 处理结果弹窗点击
         if (this.gameInfo.uiPositions.resultModal.visible) {
-            if (this.isPointInResultModalButton(x, y)) {
+            const resultAction = this.gameInfo.handleResultModalClick(x, y);
+            if (resultAction === 'share') {
+                this.handleShare();
+            } else if (resultAction === 'retry') {
                 this.main.restartGame();
             }
             return;
@@ -369,5 +402,17 @@ export default class EventManager {
                 duration: 2000
             });
         }
+    }
+
+    /**
+     * 处理分享
+     */
+    handleShare() {
+        const score = this.gameInfo.roundWinPoints || 0
+        this.shareManager.share({
+            score: score,
+            canvas: this.canvas,
+            ctx: this.canvas.getContext('2d')
+        })
     }
 }

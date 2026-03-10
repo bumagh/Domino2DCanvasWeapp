@@ -612,7 +612,7 @@ export default class GameInfo {
    */
   drawResultModal(ctx, canvasWidth, canvasHeight) {
     const modalWidth = 400
-    const modalHeight = 400
+    const modalHeight = 450  // 增加高度以容纳分享按钮
     const x = (canvasWidth - modalWidth) / 2
     const y = (canvasHeight - modalHeight) / 2
 
@@ -645,11 +645,43 @@ export default class GameInfo {
     ctx.font = '18px Arial'
     ctx.fillText(`当前总积分: ${this.score}`, canvasWidth / 2, y + 250)
 
-    // 确认按钮
+    // 分享按钮
+    const shareButtonX = x + 100
+    const shareButtonY = y + 290
+    const shareButtonWidth = 200
+    const shareButtonHeight = 50
+
+    // 保存分享按钮位置用于点击检测
+    this.uiPositions.resultModal.shareButton = {
+      x: shareButtonX,
+      y: shareButtonY,
+      width: shareButtonWidth,
+      height: shareButtonHeight
+    }
+
+    ctx.fillStyle = 'rgba(76, 175, 80, 0.3)'
+    ctx.fillRect(shareButtonX, shareButtonY, shareButtonWidth, shareButtonHeight)
+    ctx.strokeStyle = 'rgba(76, 175, 80, 0.5)'
+    ctx.strokeRect(shareButtonX, shareButtonY, shareButtonWidth, shareButtonHeight)
+
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '18px Arial'
+    ctx.textAlign = 'center'
+    ctx.fillText('📤 分享成绩', shareButtonX + shareButtonWidth / 2, shareButtonY + shareButtonHeight / 2 + 6)
+
+    // 确认按钮（位置下移）
     const resultButtonX = x + 100
-    const resultButtonY = y + 320
+    const resultButtonY = y + 360
     const resultButtonWidth = 200
     const resultButtonHeight = 50
+
+    // 保存确认按钮位置用于点击检测
+    this.uiPositions.resultModal.retryButton = {
+      x: resultButtonX,
+      y: resultButtonY,
+      width: resultButtonWidth,
+      height: resultButtonHeight
+    }
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
     ctx.fillRect(resultButtonX, resultButtonY, resultButtonWidth, resultButtonHeight)
@@ -659,7 +691,7 @@ export default class GameInfo {
     ctx.fillStyle = '#ffffff'
     ctx.font = '18px Arial'
     ctx.textAlign = 'center'
-    ctx.fillText('确定', resultButtonX + resultButtonWidth / 2, resultButtonY + resultButtonHeight / 2)
+    ctx.fillText('确定', resultButtonX + resultButtonWidth / 2, resultButtonY + resultButtonHeight / 2 + 6)
   }
 
   /**
@@ -701,6 +733,28 @@ export default class GameInfo {
         this.selectedMenuItem = action
         return action
       }
+    }
+
+    return null
+  }
+
+  /**
+   * 处理结果弹窗点击
+   * @returns {string|null} 'share' | 'retry' | null
+   */
+  handleResultModalClick(x, y) {
+    if (!this.uiPositions.resultModal.visible) return null
+
+    // 检查分享按钮点击
+    const shareButton = this.uiPositions.resultModal.shareButton
+    if (shareButton && this.isPointInButton(x, y, shareButton)) {
+      return 'share'
+    }
+
+    // 检查确认按钮点击
+    const retryButton = this.uiPositions.resultModal.retryButton
+    if (retryButton && this.isPointInButton(x, y, retryButton)) {
+      return 'retry'
     }
 
     return null

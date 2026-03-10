@@ -27,7 +27,7 @@
     "useCompilerPlugins": false
   },
   "compileType": "game",
-  "libVersion": "3.11.3",
+  "libVersion": "3.8.12",
   "appid": "wxd520e7ed11b0ef2f",
   "projectname": "quickstart",
   "condition": {
