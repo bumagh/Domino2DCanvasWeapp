@@ -330,8 +330,12 @@ export default class EventManager {
 
         switch (action) {
             case 'startGame':
-                // 启动多米诺连锁游戏
-                this.main.startDominoChainGame();
+                // 关卡模式：进入关卡选择界面
+                this.main.startDominoChainGame('levelSelect');
+                break;
+            case 'quickChallenge':
+                // 自由模式：直接进入自由游戏
+                this.main.startDominoChainGame('freePlay');
                 break;
             case 'restart':
                 this.main.restartGame();

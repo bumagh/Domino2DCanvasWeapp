@@ -357,8 +357,9 @@ export default class Main {
 
   /**
    * 运行多米诺连锁游戏
+   * @param {string} mode - 'menu' | 'levelSelect' | 'freePlay'
    */
-  startDominoChainGame() {
+  startDominoChainGame(mode = 'menu') {
     const sub = new DominoChainGame({
       main: this,
       canvas: canvas,
@@ -367,7 +368,16 @@ export default class Main {
       camera: camera
     })
 
+    // 先进入子游戏（会调用 init()）
     this.enterSubGame(sub)
+
+    // init() 之后再设置模式，避免被重置
+    if (mode === 'levelSelect') {
+      sub.gameMode = 'levelSelect'
+    } else if (mode === 'freePlay') {
+      sub.startFreePlay()
+    }
+    // mode === 'menu' 时保持默认菜单状态
   }
 
   /**

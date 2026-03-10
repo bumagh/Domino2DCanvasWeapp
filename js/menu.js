@@ -8,33 +8,36 @@ export default class Menu {
     this.databus = databus
     this.userInfo = userInfo
     
-    // UI位置配置
+    // 刘海屏安全区域偏移量
+    this.safeAreaTop = 50
+    
+    // UI位置配置（已适配刘海屏）
     this.uiPositions = {
       // 顶部栏
-      settingsButton: { x: 20, y: 120, width: 60, height: 30 },
-      mailButton: { x: 320, y: 120, width: 60, height: 30 },
+      settingsButton: { x: 20, y: 170, width: 60, height: 30 },
+      mailButton: { x: 320, y: 170, width: 60, height: 30 },
       
       // 用户信息区域
-      avatarArea: { x: 180, y: 70, size: 60 },
-      userInfo: { x: 180, y: 140 },
+      avatarArea: { x: 180, y: 270, size: 60 },
+      userInfo: { x: 180, y: 340 },
       
       // 主要功能按钮
-      startGameButton: { x: 130, y: 200, width: 140, height: 50 },
-      quickChallengeButton: { x: 130, y: 260, width: 140, height: 50 },
-      collectionButton: { x: 130, y: 320, width: 140, height: 50 },
-      creativeWorkshopButton: { x: 130, y: 380, width: 140, height: 50 },
-      myStudioButton: { x: 130, y: 440, width: 140, height: 50 },
+      startGameButton: { x: 130, y: 400, width: 140, height: 50 },
+      quickChallengeButton: { x: 130, y: 460, width: 140, height: 50 },
+      collectionButton: { x: 130, y: 520, width: 140, height: 50 },
+      creativeWorkshopButton: { x: 130, y: 580, width: 140, height: 50 },
+      myStudioButton: { x: 130, y: 640, width: 140, height: 50 },
       
       // 底部导航栏
       navButtons: {
-        task: { x: 50, y: 520, width: 70, height: 40 },
-        shop: { x: 145, y: 520, width: 70, height: 40 },
-        friends: { x: 240, y: 520, width: 70, height: 40 },
-        ranking: { x: 335, y: 520, width: 70, height: 40 }
+        task: { x: 50, y: 720, width: 70, height: 40 },
+        shop: { x: 145, y: 720, width: 70, height: 40 },
+        friends: { x: 240, y: 720, width: 70, height: 40 },
+        ranking: { x: 335, y: 720, width: 70, height: 40 }
       },
       
       // 每日签到区域
-      dailySignIn: { x: 130, y: 580, width: 140, height: 60 }
+      dailySignIn: { x: 130, y: 780, width: 140, height: 60 }
     }
     
     // 按钮状态
@@ -99,6 +102,12 @@ export default class Menu {
     // 绘制背景
     this.drawBackground(ctx, canvasWidth, canvasHeight)
     
+    // 绘制标题区域（新增）
+    this.drawTitleArea(ctx, canvasWidth)
+    
+    // 绘制装饰骨牌动画（新增）
+    this.drawMenuDominoes(ctx, canvasWidth)
+    
     // 绘制顶部栏
     this.drawTopBar(ctx, canvasWidth)
     
@@ -145,6 +154,17 @@ export default class Menu {
       ctx.lineTo(width, i)
       ctx.stroke()
     }
+    
+    // 装饰性背景粒子
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)'
+    for (let i = 0; i < 25; i++) {
+      const x = (i * 37 + Date.now() * 0.008) % width
+      const y = (i * 53) % height
+      const size = 2 + (i % 3)
+      ctx.beginPath()
+      ctx.arc(x, y, size, 0, Math.PI * 2)
+      ctx.fill()
+    }
   }
 
   /**
@@ -185,6 +205,84 @@ export default class Menu {
   }
 
   /**
+   * 绘制标题区域（新增）
+   */
+  drawTitleArea(ctx, canvasWidth) {
+    const centerX = canvasWidth / 2
+    const offsetY = this.safeAreaTop  // 刘海屏偏移
+    
+    // 主标题
+    ctx.fillStyle = '#FFD700'
+    ctx.font = 'bold 42px Arial'
+    ctx.textAlign = 'center'
+    ctx.shadowColor = '#FFD700'
+    ctx.shadowBlur = 20
+    ctx.fillText('🎯 多米诺骨牌', centerX, 55 + offsetY)
+    ctx.shadowBlur = 0
+    
+    // 副标题
+    ctx.fillStyle = '#e0e0e0'
+    ctx.font = '16px Arial'
+    ctx.fillText('摆放骨牌，创造连锁反应！', centerX, 85 + offsetY)
+    
+    // 装饰分隔线
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(centerX - 100, 105 + offsetY)
+    ctx.lineTo(centerX + 100, 105 + offsetY)
+    ctx.stroke()
+  }
+  
+  /**
+   * 绘制装饰骨牌动画（新增）
+   */
+  drawMenuDominoes(ctx, canvasWidth) {
+    const colors = ['#ff6b6b', '#4ecdc4', '#f9ca24', '#6ab04c', '#e056fd']
+    const time = Date.now() * 0.001
+    const centerX = canvasWidth / 2
+    const offsetY = this.safeAreaTop  // 刘海屏偏移
+    
+    for (let i = 0; i < 5; i++) {
+      ctx.save()
+      const baseX = centerX - 80 + i * 40
+      const baseY = 145 + offsetY
+      const angle = Math.sin(time + i * 0.5) * 0.1 + i * 0.1
+      
+      ctx.translate(baseX, baseY)
+      ctx.rotate(angle)
+      
+      // 骨牌阴影
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'
+      ctx.fillRect(-3, -28, 8, 32)
+      
+      // 骨牌主体
+      ctx.fillStyle = colors[i % colors.length]
+      ctx.fillRect(-5, -30, 10, 35)
+      
+      // 骨牌高光
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'
+      ctx.fillRect(-5, -30, 3, 35)
+      
+      // 骨牌边框
+      ctx.strokeStyle = '#333'
+      ctx.lineWidth = 1
+      ctx.strokeRect(-5, -30, 10, 35)
+      
+      // 骨牌点数装饰
+      ctx.fillStyle = '#fff'
+      ctx.beginPath()
+      ctx.arc(0, -18, 2, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(0, -8, 2, 0, Math.PI * 2)
+      ctx.fill()
+      
+      ctx.restore()
+    }
+  }
+
+  /**
    * 绘制用户信息区域
    */
   drawUserInfo(ctx) {
@@ -206,7 +304,6 @@ export default class Menu {
     
     // 绘制头像或默认图标
     if (this.userInfo?.profile?.avatarUrl) {
-      // 这里可以加载真实头像
       ctx.fillStyle = '#666666'
       ctx.font = '30px Arial'
       ctx.textAlign = 'center'
@@ -256,16 +353,61 @@ export default class Menu {
    */
   drawMainButtons(ctx) {
     const buttons = [
-      { key: 'startGame', text: '开始游戏', pos: this.uiPositions.startGameButton },
-      { key: 'quickChallenge', text: '快速挑战', pos: this.uiPositions.quickChallengeButton },
+      { key: 'startGame', text: '📖 关卡模式', pos: this.uiPositions.startGameButton, color1: '#4CAF50', color2: '#388E3C' },
+      { key: 'quickChallenge', text: '🎮 自由模式', pos: this.uiPositions.quickChallengeButton, color1: '#2196F3', color2: '#1565C0' },
       { key: 'collection', text: '我的图鉴', pos: this.uiPositions.collectionButton },
       { key: 'creativeWorkshop', text: '创意工坊', pos: this.uiPositions.creativeWorkshopButton },
       { key: 'myStudio', text: '我的工作室', pos: this.uiPositions.myStudioButton }
     ]
     
     buttons.forEach(button => {
-      this.drawMainButton(ctx, button.text, button.pos, this.buttonStates[button.key], this.animations.buttonScale[button.key] || 1)
+      if (button.color1) {
+        this.drawColoredButton(ctx, button.text, button.pos, this.buttonStates[button.key], button.color1, button.color2)
+      } else {
+        this.drawMainButton(ctx, button.text, button.pos, this.buttonStates[button.key], this.animations.buttonScale[button.key] || 1)
+      }
     })
+  }
+  
+  /**
+   * 绘制彩色按钮（新增）
+   */
+  drawColoredButton(ctx, text, position, state, color1, color2) {
+    const centerX = position.x + position.width / 2
+    const centerY = position.y + position.height / 2
+    
+    // 按钮渐变背景
+    const gradient = ctx.createLinearGradient(position.x, position.y, position.x, position.y + position.height)
+    gradient.addColorStop(0, color1)
+    gradient.addColorStop(1, color2)
+    ctx.fillStyle = gradient
+    
+    // 圆角矩形
+    const radius = 8
+    ctx.beginPath()
+    ctx.moveTo(position.x + radius, position.y)
+    ctx.lineTo(position.x + position.width - radius, position.y)
+    ctx.quadraticCurveTo(position.x + position.width, position.y, position.x + position.width, position.y + radius)
+    ctx.lineTo(position.x + position.width, position.y + position.height - radius)
+    ctx.quadraticCurveTo(position.x + position.width, position.y + position.height, position.x + position.width - radius, position.y + position.height)
+    ctx.lineTo(position.x + radius, position.y + position.height)
+    ctx.quadraticCurveTo(position.x, position.y + position.height, position.x, position.y + position.height - radius)
+    ctx.lineTo(position.x, position.y + radius)
+    ctx.quadraticCurveTo(position.x, position.y, position.x + radius, position.y)
+    ctx.closePath()
+    ctx.fill()
+    
+    // 按钮边框高光
+    ctx.strokeStyle = state.hovered ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+    ctx.lineWidth = 2
+    ctx.stroke()
+    
+    // 按钮文字
+    ctx.fillStyle = '#fff'
+    ctx.font = 'bold 16px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(text, centerX, centerY)
   }
 
   /**
