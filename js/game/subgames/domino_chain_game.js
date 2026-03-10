@@ -28,6 +28,12 @@ export default class DominoChainGame extends SubGameBase {
         this.isSimulating = false
         this.chainCount = 0
         
+        // 模拟超时检测
+        this.simulationStartTime = 0      // 模拟开始时间
+        this.lastActivityTime = 0          // 最后活动时间
+        this.IDLE_TIMEOUT = 3000           // 静止超时(3秒)
+        this.MAX_SIMULATION_TIME = 15000   // 最大模拟时间(15秒)
+        
         // 分享管理器
         this.shareManager = new ShareManager()
         
@@ -54,6 +60,8 @@ export default class DominoChainGame extends SubGameBase {
         this.showingResult = false
         this.gameResult = null
         this.resultScore = 0
+        this.simulationStartTime = 0
+        this.lastActivityTime = 0
     }
     
     // ========== 游戏更新 ==========
@@ -61,10 +69,15 @@ export default class DominoChainGame extends SubGameBase {
     update(deltaTime) {
         if (!this.isSimulating) return
         
+        const now = Date.now()
+        let hasActivity = false
+        
         // 更新每个骨牌的倒下动画
         let allFallen = true
         this.dominoes.forEach((domino, index) => {
             if (domino.falling) {
+                hasActivity = true  // 有骨牌在倒下，记录活动
+                
                 // 骨牌倒下动画
                 domino.angle += domino.fallSpeed
                 if (domino.angle >= Math.PI / 2) {
@@ -91,8 +104,22 @@ export default class DominoChainGame extends SubGameBase {
             }
         })
         
-        // 检查游戏结束
+        // 更新最后活动时间
+        if (hasActivity) {
+            this.lastActivityTime = now
+        }
+        
+        // 检查游戏结束条件
         if (allFallen && this.dominoes.length > 0) {
+            // 所有骨牌都倒下了
+            this.endGame()
+        } else if (now - this.lastActivityTime > this.IDLE_TIMEOUT) {
+            // 静止超时(3秒无活动)
+            console.log('静止超时，结束游戏')
+            this.endGame()
+        } else if (now - this.simulationStartTime > this.MAX_SIMULATION_TIME) {
+            // 总超时(15秒)
+            console.log('模拟超时，强制结束')
             this.endGame()
         }
     }
@@ -107,6 +134,11 @@ export default class DominoChainGame extends SubGameBase {
         
         // 按X坐标排序骨牌
         this.dominoes.sort((a, b) => a.x - b.x)
+        
+        // 初始化超时检测
+        const now = Date.now()
+        this.simulationStartTime = now
+        this.lastActivityTime = now
         
         // 推倒第一个骨牌
         this.isSimulating = true
@@ -139,17 +171,18 @@ export default class DominoChainGame extends SubGameBase {
             return
         }
         
+        // 检查重置按钮（任何时候都可以点击）
+        if (this.checkResetButton(x, y)) {
+            this.reset()
+            return
+        }
+        
+        // 模拟中禁止其他操作
         if (this.isSimulating) return
         
         // 检查开始按钮
         if (this.checkStartButton(x, y)) {
             this.startSimulation()
-            return
-        }
-        
-        // 检查重置按钮
-        if (this.checkResetButton(x, y)) {
-            this.reset()
             return
         }
         
