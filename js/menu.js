@@ -4,13 +4,15 @@
  */
 
 export default class Menu {
-  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null, shopManager = null) {
+  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null, shopManager = null, settingsManager = null, announcementManager = null) {
     this.databus = databus
     this.userInfo = userInfo
     this.main = main  // 添加 main 引用，用于访问广告管理器
     this.signInManager = signInManager  // 添加签到管理器
     this.taskManager = taskManager  // 添加任务管理器
     this.shopManager = shopManager  // 添加商店管理器
+    this.settingsManager = settingsManager  // 添加设置管理器
+    this.announcementManager = announcementManager  // 添加公告管理器
 
     // 刘海屏安全区域偏移量
     this.safeAreaTop = 50
@@ -99,6 +101,26 @@ export default class Menu {
       tabEffects: { x: 250, y: 150, width: 90, height: 35 },
       currentTab: 'items', // items, skins, effects
       productItems: [] // 将在渲染时动态计算
+    }
+
+    // 设置弹窗配置
+    this.settingsModal = {
+      visible: false,
+      position: { x: 60, y: 150, width: 280, height: 400 },
+      closeButton: { x: 310, y: 160, width: 30, height: 30 },
+      settingItems: [] // 将在渲染时动态计算
+    }
+
+    // 公告弹窗配置
+    this.announcementModal = {
+      visible: false,
+      position: { x: 30, y: 80, width: 340, height: 580 },
+      closeButton: { x: 340, y: 90, width: 30, height: 30 },
+      tabSystem: { x: 50, y: 140, width: 90, height: 35 },
+      tabActivity: { x: 155, y: 140, width: 90, height: 35 },
+      tabUpdate: { x: 260, y: 140, width: 90, height: 35 },
+      currentTab: 'system', // system, activity, update
+      announcementItems: [] // 将在渲染时动态计算
     }
 
     // 按钮状态
@@ -194,6 +216,16 @@ export default class Menu {
     // 绘制商店弹窗
     if (this.shopModal.visible) {
       this.drawShopModal(ctx)
+    }
+
+    // 绘制设置弹窗
+    if (this.settingsModal.visible) {
+      this.drawSettingsModal(ctx)
+    }
+
+    // 绘制公告弹窗
+    if (this.announcementModal.visible) {
+      this.drawAnnouncementModal(ctx)
     }
 
     // 绘制粒子效果
@@ -980,6 +1012,260 @@ export default class Menu {
   }
 
   /**
+   * 绘制设置弹窗
+   */
+  drawSettingsModal(ctx) {
+    const modal = this.settingsModal
+    const settings = this.settingsManager ? this.settingsManager.getAllSettings() : []
+
+    // 全屏遮罩层（防止穿透）
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+
+    // 弹窗背景
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'
+    ctx.fillRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+
+    // 边框
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)'
+    ctx.lineWidth = 3
+    ctx.strokeRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+
+    // 标题
+    ctx.fillStyle = '#FFD700'
+    ctx.font = 'bold 20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('设置', modal.position.x + modal.position.width / 2, modal.position.y + 30)
+
+    // 关闭按钮
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+    ctx.fillRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('✕', modal.closeButton.x + modal.closeButton.width / 2, modal.closeButton.y + modal.closeButton.height / 2)
+
+    // 绘制设置项列表
+    let startY = 80
+    settings.forEach((setting, index) => {
+      const itemY = modal.position.y + startY + index * 70
+      const itemHeight = 60
+
+      // 设置项背景
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)'
+      ctx.fillRect(modal.position.x + 15, itemY, modal.position.width - 30, itemHeight)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
+      ctx.lineWidth = 1
+      ctx.strokeRect(modal.position.x + 15, itemY, modal.position.width - 30, itemHeight)
+
+      // 设置图标
+      ctx.font = '28px Arial'
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(setting.icon, modal.position.x + 30, itemY + itemHeight / 2)
+
+      // 设置名称
+      ctx.font = 'bold 14px Arial'
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText(setting.name, modal.position.x + 70, itemY + 20)
+
+      // 设置描述
+      ctx.font = '11px Arial'
+      ctx.fillStyle = '#aaaaaa'
+      ctx.fillText(setting.description, modal.position.x + 70, itemY + 40)
+
+      // 开关按钮
+      const switchButton = {
+        x: modal.position.x + modal.position.width - 60,
+        y: itemY + 15,
+        width: 50,
+        height: 30
+      }
+
+      // 开关背景
+      ctx.fillStyle = setting.value ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 255, 255, 0.2)'
+      ctx.fillRect(switchButton.x, switchButton.y, switchButton.width, switchButton.height)
+      ctx.strokeStyle = setting.value ? 'rgba(0, 255, 0, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+      ctx.lineWidth = 2
+      ctx.strokeRect(switchButton.x, switchButton.y, switchButton.width, switchButton.height)
+
+      // 开关滑块
+      const sliderX = setting.value ? switchButton.x + 30 : switchButton.x + 5
+      ctx.fillStyle = setting.value ? '#00ff00' : '#ffffff'
+      ctx.beginPath()
+      ctx.arc(sliderX + 10, switchButton.y + 15, 10, 0, Math.PI * 2)
+      ctx.fill()
+    })
+  }
+
+  /**
+   * 绘制公告弹窗
+   */
+  drawAnnouncementModal(ctx) {
+    const modal = this.announcementModal
+    const announcements = this.announcementManager ? this.announcementManager.getAnnouncements(modal.currentTab) : []
+    const unreadCount = this.announcementManager ? this.announcementManager.getUnreadCount() : 0
+
+    // 全屏遮罩层（防止穿透）
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+
+    // 弹窗背景
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'
+    ctx.fillRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+
+    // 边框
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)'
+    ctx.lineWidth = 3
+    ctx.strokeRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+
+    // 标题
+    ctx.fillStyle = '#FFD700'
+    ctx.font = 'bold 20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('公告中心', modal.position.x + modal.position.width / 2, modal.position.y + 30)
+
+    // 未读数量
+    if (unreadCount > 0) {
+      ctx.fillStyle = '#ff4444'
+      ctx.font = 'bold 14px Arial'
+      ctx.textAlign = 'right'
+      ctx.fillText(`未读: ${unreadCount}`, modal.position.x + modal.position.width - 10, modal.position.y + 30)
+    }
+
+    // 关闭按钮
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+    ctx.fillRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('✕', modal.closeButton.x + modal.closeButton.width / 2, modal.closeButton.y + modal.closeButton.height / 2)
+
+    // 标签页
+    const tabSystemColor = modal.currentTab === 'system' ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'
+    const tabActivityColor = modal.currentTab === 'activity' ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'
+    const tabUpdateColor = modal.currentTab === 'update' ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'
+
+    ctx.fillStyle = tabSystemColor
+    ctx.fillRect(modal.tabSystem.x, modal.tabSystem.y, modal.tabSystem.width, modal.tabSystem.height)
+    ctx.strokeStyle = modal.currentTab === 'system' ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(modal.tabSystem.x, modal.tabSystem.y, modal.tabSystem.width, modal.tabSystem.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '12px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('系统公告', modal.tabSystem.x + modal.tabSystem.width / 2, modal.tabSystem.y + modal.tabSystem.height / 2)
+
+    ctx.fillStyle = tabActivityColor
+    ctx.fillRect(modal.tabActivity.x, modal.tabActivity.y, modal.tabActivity.width, modal.tabActivity.height)
+    ctx.strokeStyle = modal.currentTab === 'activity' ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+    ctx.strokeRect(modal.tabActivity.x, modal.tabActivity.y, modal.tabActivity.width, modal.tabActivity.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText('活动公告', modal.tabActivity.x + modal.tabActivity.width / 2, modal.tabActivity.y + modal.tabActivity.height / 2)
+
+    ctx.fillStyle = tabUpdateColor
+    ctx.fillRect(modal.tabUpdate.x, modal.tabUpdate.y, modal.tabUpdate.width, modal.tabUpdate.height)
+    ctx.strokeStyle = modal.currentTab === 'update' ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+    ctx.strokeRect(modal.tabUpdate.x, modal.tabUpdate.y, modal.tabUpdate.width, modal.tabUpdate.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText('更新公告', modal.tabUpdate.x + modal.tabUpdate.width / 2, modal.tabUpdate.y + modal.tabUpdate.height / 2)
+
+    // 绘制公告列表
+    let startY = 200
+    announcements.forEach((announcement, index) => {
+      const itemY = modal.position.y + startY + index * 110
+      const itemHeight = 100
+
+      // 公告背景
+      ctx.fillStyle = announcement.isRead ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 215, 0, 0.1)'
+      ctx.fillRect(modal.position.x + 15, itemY, modal.position.width - 30, itemHeight)
+      ctx.strokeStyle = announcement.isRead ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 215, 0, 0.3)'
+      ctx.lineWidth = 1
+      ctx.strokeRect(modal.position.x + 15, itemY, modal.position.width - 30, itemHeight)
+
+      // 未读标记
+      if (!announcement.isRead) {
+        ctx.fillStyle = '#ff4444'
+        ctx.beginPath()
+        ctx.arc(modal.position.x + 25, itemY + 15, 4, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      // 公告图标
+      ctx.font = '24px Arial'
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(this.announcementManager ? this.announcementManager.getTypeIcon(announcement.type) : '📋', modal.position.x + 35, itemY + 30)
+
+      // 公告标题
+      ctx.font = 'bold 13px Arial'
+      ctx.fillStyle = announcement.isRead ? '#aaaaaa' : '#ffffff'
+      ctx.fillText(announcement.title, modal.position.x + 70, itemY + 20)
+
+      // 公告日期
+      ctx.font = '10px Arial'
+      ctx.fillStyle = '#888888'
+      ctx.fillText(announcement.date, modal.position.x + 70, itemY + 40)
+
+      // 公告内容（截断显示）
+      ctx.font = '11px Arial'
+      ctx.fillStyle = '#cccccc'
+      const maxWidth = modal.position.width - 100
+      const displayContent = announcement.content.length > 50 ? announcement.content.substring(0, 50) + '...' : announcement.content
+      ctx.fillText(displayContent, modal.position.x + 70, itemY + 60)
+
+      // 查看详情按钮
+      const detailButton = {
+        x: modal.position.x + modal.position.width - 85,
+        y: itemY + 70,
+        width: 60,
+        height: 20
+      }
+      ctx.fillStyle = 'rgba(255, 215, 0, 0.2)'
+      ctx.fillRect(detailButton.x, detailButton.y, detailButton.width, detailButton.height)
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)'
+      ctx.lineWidth = 1
+      ctx.strokeRect(detailButton.x, detailButton.y, detailButton.width, detailButton.height)
+      ctx.fillStyle = '#FFD700'
+      ctx.font = '11px Arial'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('查看', detailButton.x + detailButton.width / 2, detailButton.y + detailButton.height / 2)
+    })
+
+    // 全部已读按钮
+    if (unreadCount > 0) {
+      const markAllButton = {
+        x: modal.position.x + modal.position.width / 2 - 50,
+        y: modal.position.y + modal.position.height - 40,
+        width: 100,
+        height: 30
+      }
+      ctx.fillStyle = 'rgba(0, 255, 0, 0.2)'
+      ctx.fillRect(markAllButton.x, markAllButton.y, markAllButton.width, markAllButton.height)
+      ctx.strokeStyle = 'rgba(0, 255, 0, 0.4)'
+      ctx.lineWidth = 2
+      ctx.strokeRect(markAllButton.x, markAllButton.y, markAllButton.width, markAllButton.height)
+      ctx.fillStyle = '#00ff00'
+      ctx.font = '12px Arial'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('全部已读', markAllButton.x + markAllButton.width / 2, markAllButton.y + markAllButton.height / 2)
+    }
+  }
+
+  /**
    * 绘制观看广告按钮
    */
   drawWatchAdButton(ctx) {
@@ -1209,6 +1495,112 @@ export default class Menu {
       return 'modalClick'
     }
 
+    // 优先检查设置弹窗（如果弹窗显示，拦截所有点击）
+    if (this.settingsModal.visible) {
+      // 关闭按钮
+      if (this.isPointInButton(x, y, this.settingsModal.closeButton)) {
+        this.settingsModal.visible = false
+        return 'closeSettingsModal'
+      }
+      // 检查开关按钮点击
+      const settings = this.settingsManager ? this.settingsManager.getAllSettings() : []
+      let startY = 80
+      settings.forEach((setting, index) => {
+        const itemY = this.settingsModal.position.y + startY + index * 70
+        const switchButton = {
+          x: this.settingsModal.position.x + this.settingsModal.position.width - 60,
+          y: itemY + 15,
+          width: 50,
+          height: 30
+        }
+        if (this.isPointInButton(x, y, switchButton)) {
+          const result = this.settingsManager.toggleSetting(setting.id)
+          if (result.success) {
+            wx.showToast({
+              title: `${setting.name}已${result.value ? '开启' : '关闭'}`,
+              icon: 'none'
+            })
+          }
+          return 'settingToggle'
+        }
+      })
+      // 点击弹窗外部关闭（遮罩层）
+      if (!this.isPointInButton(x, y, this.settingsModal.position)) {
+        this.settingsModal.visible = false
+        return 'closeSettingsModal'
+      }
+      // 点击弹窗内部（但不点击按钮），不穿透到下一层
+      return 'modalClick'
+    }
+
+    // 优先检查公告弹窗（如果弹窗显示，拦截所有点击）
+    if (this.announcementModal.visible) {
+      // 关闭按钮
+      if (this.isPointInButton(x, y, this.announcementModal.closeButton)) {
+        this.announcementModal.visible = false
+        return 'closeAnnouncementModal'
+      }
+      // 标签页切换
+      if (this.isPointInButton(x, y, this.announcementModal.tabSystem)) {
+        this.announcementModal.currentTab = 'system'
+        return 'announcementTabSystem'
+      }
+      if (this.isPointInButton(x, y, this.announcementModal.tabActivity)) {
+        this.announcementModal.currentTab = 'activity'
+        return 'announcementTabActivity'
+      }
+      if (this.isPointInButton(x, y, this.announcementModal.tabUpdate)) {
+        this.announcementModal.currentTab = 'update'
+        return 'announcementTabUpdate'
+      }
+      // 检查查看按钮点击
+      const announcements = this.announcementManager ? this.announcementManager.getAnnouncements(this.announcementModal.currentTab) : []
+      let startY = 200
+      announcements.forEach((announcement, index) => {
+        const itemY = this.announcementModal.position.y + startY + index * 110
+        const detailButton = {
+          x: this.announcementModal.position.x + this.announcementModal.position.width - 85,
+          y: itemY + 70,
+          width: 60,
+          height: 20
+        }
+        if (this.isPointInButton(x, y, detailButton)) {
+          this.announcementManager.markAsRead(announcement.id)
+          wx.showModal({
+            title: announcement.title,
+            content: announcement.content,
+            showCancel: false
+          })
+          return 'announcementDetail'
+        }
+      })
+      // 检查全部已读按钮
+      const unreadCount = this.announcementManager ? this.announcementManager.getUnreadCount() : 0
+      if (unreadCount > 0) {
+        const markAllButton = {
+          x: this.announcementModal.position.x + this.announcementModal.position.width / 2 - 50,
+          y: this.announcementModal.position.y + this.announcementModal.position.height - 40,
+          width: 100,
+          height: 30
+        }
+        if (this.isPointInButton(x, y, markAllButton)) {
+          this.announcementManager.markAllAsRead()
+          wx.showToast({
+            title: '全部已标记为已读',
+            icon: 'success'
+          })
+          return 'announcementMarkAll'
+        }
+      }
+      // 点击弹窗外部关闭（遮罩层）
+      if (!this.isPointInButton(x, y, this.announcementModal.position)) {
+        this.announcementModal.visible = false
+        return 'closeAnnouncementModal'
+      }
+      // 点击弹窗内部（但不点击按钮），不穿透到下一层
+      return 'modalClick'
+    }
+
     // 检查主要按钮点击
     if (this.isPointInButton(x, y, this.uiPositions.startGameButton)) {
       return 'startGame'
@@ -1256,10 +1648,14 @@ export default class Menu {
 
     // 检查顶部按钮
     if (this.isPointInButton(x, y, this.uiPositions.settingsButton)) {
-      return 'settings'
+      // 打开设置弹窗
+      this.settingsModal.visible = true
+      return 'settingsModal'
     }
     if (this.isPointInButton(x, y, this.uiPositions.mailButton)) {
-      return 'mail'
+      // 打开公告弹窗
+      this.announcementModal.visible = true
+      return 'announcementModal'
     }
 
     return null
