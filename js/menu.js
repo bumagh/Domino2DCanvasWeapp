@@ -4,12 +4,13 @@
  */
 
 export default class Menu {
-  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null) {
+  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null, shopManager = null) {
     this.databus = databus
     this.userInfo = userInfo
     this.main = main  // 添加 main 引用，用于访问广告管理器
     this.signInManager = signInManager  // 添加签到管理器
     this.taskManager = taskManager  // 添加任务管理器
+    this.shopManager = shopManager  // 添加商店管理器
 
     // 刘海屏安全区域偏移量
     this.safeAreaTop = 50
@@ -86,6 +87,18 @@ export default class Menu {
       tabAchievement: { x: 210, y: 150, width: 140, height: 40 },
       currentTab: 'daily', // daily 或 achievement
       taskItems: [] // 将在渲染时动态计算
+    }
+
+    // 商店弹窗配置
+    this.shopModal = {
+      visible: false,
+      position: { x: 30, y: 100, width: 340, height: 550 },
+      closeButton: { x: 340, y: 110, width: 30, height: 30 },
+      tabItems: { x: 40, y: 150, width: 90, height: 35 },
+      tabSkins: { x: 145, y: 150, width: 90, height: 35 },
+      tabEffects: { x: 250, y: 150, width: 90, height: 35 },
+      currentTab: 'items', // items, skins, effects
+      productItems: [] // 将在渲染时动态计算
     }
 
     // 按钮状态
@@ -176,6 +189,11 @@ export default class Menu {
     // 绘制任务弹窗
     if (this.taskModal.visible) {
       this.drawTaskModal(ctx)
+    }
+
+    // 绘制商店弹窗
+    if (this.shopModal.visible) {
+      this.drawShopModal(ctx)
     }
 
     // 绘制粒子效果
@@ -824,6 +842,144 @@ export default class Menu {
   }
 
   /**
+   * 绘制商店弹窗
+   */
+  drawShopModal(ctx) {
+    const modal = this.shopModal
+    const products = this.shopManager ? this.shopManager.getProducts(modal.currentTab) : []
+    const userScore = this.userInfo ? this.userInfo.score : 0
+
+    // 全屏遮罩层（防止穿透）
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+
+    // 弹窗背景
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'
+    ctx.fillRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+
+    // 边框
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)'
+    ctx.lineWidth = 3
+    ctx.strokeRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+
+    // 标题
+    ctx.fillStyle = '#FFD700'
+    ctx.font = 'bold 20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('商店', modal.position.x + modal.position.width / 2, modal.position.y + 30)
+
+    // 用户积分显示
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '14px Arial'
+    ctx.textAlign = 'right'
+    ctx.fillText(`积分: ${userScore}`, modal.position.x + modal.position.width - 10, modal.position.y + 30)
+
+    // 关闭按钮
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+    ctx.fillRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 20px Arial'
+    ctx.textAlign = 'center'
+    ctx.fillText('✕', modal.closeButton.x + modal.closeButton.width / 2, modal.closeButton.y + modal.closeButton.height / 2)
+
+    // 标签页
+    const tabItemsColor = modal.currentTab === 'items' ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'
+    const tabSkinsColor = modal.currentTab === 'skins' ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'
+    const tabEffectsColor = modal.currentTab === 'effects' ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'
+
+    ctx.fillStyle = tabItemsColor
+    ctx.fillRect(modal.tabItems.x, modal.tabItems.y, modal.tabItems.width, modal.tabItems.height)
+    ctx.strokeStyle = modal.currentTab === 'items' ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(modal.tabItems.x, modal.tabItems.y, modal.tabItems.width, modal.tabItems.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '12px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('道具', modal.tabItems.x + modal.tabItems.width / 2, modal.tabItems.y + modal.tabItems.height / 2)
+
+    ctx.fillStyle = tabSkinsColor
+    ctx.fillRect(modal.tabSkins.x, modal.tabSkins.y, modal.tabSkins.width, modal.tabSkins.height)
+    ctx.strokeStyle = modal.currentTab === 'skins' ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+    ctx.strokeRect(modal.tabSkins.x, modal.tabSkins.y, modal.tabSkins.width, modal.tabSkins.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText('皮肤', modal.tabSkins.x + modal.tabSkins.width / 2, modal.tabSkins.y + modal.tabSkins.height / 2)
+
+    ctx.fillStyle = tabEffectsColor
+    ctx.fillRect(modal.tabEffects.x, modal.tabEffects.y, modal.tabEffects.width, modal.tabEffects.height)
+    ctx.strokeStyle = modal.currentTab === 'effects' ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+    ctx.strokeRect(modal.tabEffects.x, modal.tabEffects.y, modal.tabEffects.width, modal.tabEffects.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText('特效', modal.tabEffects.x + modal.tabEffects.width / 2, modal.tabEffects.y + modal.tabEffects.height / 2)
+
+    // 绘制商品列表（两列布局）
+    let startY = 210
+    const cols = 2
+    products.forEach((product, index) => {
+      const col = index % cols
+      const row = Math.floor(index / cols)
+      const itemX = modal.position.x + 25 + col * 155
+      const itemY = startY + row * 145
+      const itemWidth = 145
+      const itemHeight = 135
+
+      // 商品背景
+      ctx.fillStyle = product.owned ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)'
+      ctx.fillRect(itemX, itemY, itemWidth, itemHeight)
+      ctx.strokeStyle = product.owned ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 255, 255, 0.2)'
+      ctx.lineWidth = 1
+      ctx.strokeRect(itemX, itemY, itemWidth, itemHeight)
+
+      // 商品图标
+      ctx.font = '32px Arial'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(product.icon, itemX + itemWidth / 2, itemY + 35)
+
+      // 商品名称
+      ctx.font = 'bold 13px Arial'
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText(product.name, itemX + itemWidth / 2, itemY + 65)
+
+      // 商品描述
+      ctx.font = '10px Arial'
+      ctx.fillStyle = '#aaaaaa'
+      ctx.fillText(product.description, itemX + itemWidth / 2, itemY + 82)
+
+      // 价格
+      ctx.fillStyle = '#FFD700'
+      ctx.font = 'bold 14px Arial'
+      ctx.fillText(`${product.price}积分`, itemX + itemWidth / 2, itemY + 100)
+
+      // 购买/已拥有按钮
+      if (product.owned) {
+        ctx.fillStyle = '#00ff00'
+        ctx.font = '14px Arial'
+        ctx.fillText('已拥有', itemX + itemWidth / 2, itemY + 125)
+      } else {
+        const buyButton = {
+          x: itemX + itemWidth / 2 - 45,
+          y: itemY + 105,
+          width: 90,
+          height: 32
+        }
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.3)'
+        ctx.fillRect(buyButton.x, buyButton.y, buyButton.width, buyButton.height)
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)'
+        ctx.lineWidth = 2
+        ctx.strokeRect(buyButton.x, buyButton.y, buyButton.width, buyButton.height)
+        ctx.fillStyle = '#FFD700'
+        ctx.font = 'bold 14px Arial'
+        ctx.fillText('购买', itemX + itemWidth / 2, itemY + 121)
+      }
+    })
+  }
+
+  /**
    * 绘制观看广告按钮
    */
   drawWatchAdButton(ctx) {
@@ -991,6 +1147,68 @@ export default class Menu {
       return 'modalClick'
     }
 
+    // 优先检查商店弹窗（如果弹窗显示，拦截所有点击）
+    if (this.shopModal.visible) {
+      // 关闭按钮
+      if (this.isPointInButton(x, y, this.shopModal.closeButton)) {
+        this.shopModal.visible = false
+        return 'closeShopModal'
+      }
+      // 标签页切换
+      if (this.isPointInButton(x, y, this.shopModal.tabItems)) {
+        this.shopModal.currentTab = 'items'
+        return 'shopTabItems'
+      }
+      if (this.isPointInButton(x, y, this.shopModal.tabSkins)) {
+        this.shopModal.currentTab = 'skins'
+        return 'shopTabSkins'
+      }
+      if (this.isPointInButton(x, y, this.shopModal.tabEffects)) {
+        this.shopModal.currentTab = 'effects'
+        return 'shopTabEffects'
+      }
+      // 检查购买按钮点击
+      const products = this.shopManager ? this.shopManager.getProducts(this.shopModal.currentTab) : []
+      let startY = 210
+      const cols = 2
+      products.forEach((product, index) => {
+        if (!product.owned) {
+          const col = index % cols
+          const row = Math.floor(index / cols)
+          const itemX = this.shopModal.position.x + 25 + col * 155
+          const itemY = startY + row * 145
+          const buyButton = {
+            x: itemX + 72.5 - 45,
+            y: itemY + 105,
+            width: 90,
+            height: 32
+          }
+          if (this.isPointInButton(x, y, buyButton)) {
+            const result = this.shopManager.buyProduct(product.id, this.shopModal.currentTab)
+            if (result.success) {
+              wx.showToast({
+                title: `购买成功！花费${result.product.price}积分`,
+                icon: 'success'
+              })
+            } else {
+              wx.showToast({
+                title: result.message,
+                icon: 'none'
+              })
+            }
+            return 'shopBuy'
+          }
+        }
+      })
+      // 点击弹窗外部关闭（遮罩层）
+      if (!this.isPointInButton(x, y, this.shopModal.position)) {
+        this.shopModal.visible = false
+        return 'closeShopModal'
+      }
+      // 点击弹窗内部（但不点击按钮），不穿透到下一层
+      return 'modalClick'
+    }
+
     // 检查主要按钮点击
     if (this.isPointInButton(x, y, this.uiPositions.startGameButton)) {
       return 'startGame'
@@ -1015,7 +1233,9 @@ export default class Menu {
       return 'taskModal'
     }
     if (this.isPointInButton(x, y, this.uiPositions.navButtons.shop)) {
-      return 'shop'
+      // 打开商店弹窗
+      this.shopModal.visible = true
+      return 'shopModal'
     }
     if (this.isPointInButton(x, y, this.uiPositions.navButtons.friends)) {
       return 'friends'

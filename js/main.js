@@ -11,6 +11,7 @@ import AdManager from './game/admanager.js'
 import Collection from './game/collection.js'
 import SignInManager from './game/signinmanager.js'
 import TaskManager from './game/taskmanager.js'
+import ShopManager from './game/shopmanager.js'
 
 // 子游戏（模块化）
 import DominoChainGame from './game/subgames/domino_chain_game.js'
@@ -33,6 +34,9 @@ export default class Main {
 
   // 任务管理器
   taskManager = null  // 任务管理器
+
+  // 商店管理器
+  shopManager = null  // 商店管理器
   userInfo = null  // 用户信息实例
   menu = null  // 菜单实例
   adManager = null  // 广告管理器
@@ -83,7 +87,8 @@ export default class Main {
     this.userInfo = new UserInfo(databus)
     this.signInManager = new SignInManager(databus, this.userInfo)
     this.taskManager = new TaskManager(databus, this.userInfo)
-    this.menu = new Menu(databus, this.userInfo, this, this.signInManager, this.taskManager)
+    this.shopManager = new ShopManager(databus, this.userInfo)
+    this.menu = new Menu(databus, this.userInfo, this, this.signInManager, this.taskManager, this.shopManager)
     this.gameInfo = new GameInfo(databus, this.userInfo)
     camera = new Camera(canvas.width, canvas.height, databus.mapHeight)
 

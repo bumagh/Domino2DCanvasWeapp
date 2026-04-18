@@ -102,6 +102,9 @@ export default class EventManager {
             if (this.menu.taskModal && this.menu.taskModal.visible) {
                 return;
             }
+            if (this.menu.shopModal && this.menu.shopModal.visible) {
+                return;
+            }
 
             // 更新菜单悬停状态
             this.menu.handleMouseMove(x, y);
@@ -372,6 +375,14 @@ export default class EventManager {
             case 'taskTabAchievement':
             case 'taskClaim':
                 // 任务弹窗相关动作（已在Menu中处理）
+                break;
+            case 'shopModal':
+            case 'closeShopModal':
+            case 'shopTabItems':
+            case 'shopTabSkins':
+            case 'shopTabEffects':
+            case 'shopBuy':
+                // 商店弹窗相关动作（已在Menu中处理）
                 break;
             case 'restart':
                 this.main.restartGame();

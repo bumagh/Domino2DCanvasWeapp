@@ -9,7 +9,7 @@ export default class UserInfo {
   constructor(databus) {
     this.databus = databus
     this.profile = null
-    this.score = databus.score || 10
+    this.score = databus.score || 1000
     
     // UI位置配置
     this.uiPositions = {
