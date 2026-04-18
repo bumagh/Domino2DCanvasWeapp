@@ -4,10 +4,11 @@
  */
 
 export default class Menu {
-  constructor(databus, userInfo) {
+  constructor(databus, userInfo, main = null) {
     this.databus = databus
     this.userInfo = userInfo
-    
+    this.main = main  // 添加 main 引用，用于访问广告管理器
+
     // 刘海屏安全区域偏移量
     this.safeAreaTop = 50
     
@@ -37,7 +38,10 @@ export default class Menu {
       },
       
       // 每日签到区域
-      dailySignIn: { x: 130, y: 780, width: 140, height: 60 }
+      dailySignIn: { x: 130, y: 780, width: 140, height: 60 },
+
+      // 观看广告获得奖励按钮
+      watchAdButton: { x: 130, y: 850, width: 140, height: 50 }
     }
     
     // 按钮状态
@@ -51,7 +55,8 @@ export default class Menu {
       shop: { hovered: false, pressed: false },
       friends: { hovered: false, pressed: false },
       ranking: { hovered: false, pressed: false },
-      dailySignIn: { hovered: false, pressed: false }
+      dailySignIn: { hovered: false, pressed: false },
+      watchAd: { hovered: false, pressed: false }
     }
     
     // 每日签到数据
@@ -122,7 +127,10 @@ export default class Menu {
     
     // 绘制每日签到区域
     this.drawDailySignIn(ctx)
-    
+
+    // 绘制观看广告按钮
+    this.drawWatchAdButton(ctx)
+
     // 绘制粒子效果
     this.renderParticles(ctx)
   }
@@ -495,21 +503,21 @@ export default class Menu {
   drawDailySignIn(ctx) {
     const { dailySignIn } = this.uiPositions
     const data = this.dailySignInData
-    
+
     // 背景框
     ctx.fillStyle = data.isSignedToday ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)'
     ctx.fillRect(dailySignIn.x, dailySignIn.y, dailySignIn.width, dailySignIn.height)
-    
+
     ctx.strokeStyle = data.isSignedToday ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 255, 255, 0.3)'
     ctx.lineWidth = 2
     ctx.strokeRect(dailySignIn.x, dailySignIn.y, dailySignIn.width, dailySignIn.height)
-    
+
     // 标题
     ctx.fillStyle = '#ffffff'
     ctx.font = '14px Arial'
     ctx.textAlign = 'center'
     ctx.fillText('每日签到', dailySignIn.x + dailySignIn.width / 2, dailySignIn.y + 20)
-    
+
     // 签到状态
     ctx.font = '12px Arial'
     if (data.isSignedToday) {
@@ -519,6 +527,34 @@ export default class Menu {
       ctx.fillStyle = '#ffff00'
       ctx.fillText(`连续登录第${data.consecutiveDays}天`, dailySignIn.x + dailySignIn.width / 2, dailySignIn.y + 40)
     }
+  }
+
+  /**
+   * 绘制观看广告按钮
+   */
+  drawWatchAdButton(ctx) {
+    const { watchAdButton } = this.uiPositions
+    const state = this.buttonStates.watchAd
+
+    // 按钮背景（金色）
+    ctx.fillStyle = state.hovered ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 215, 0, 0.2)'
+    ctx.fillRect(watchAdButton.x, watchAdButton.y, watchAdButton.width, watchAdButton.height)
+
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(watchAdButton.x, watchAdButton.y, watchAdButton.width, watchAdButton.height)
+
+    // 图标
+    ctx.fillStyle = '#FFD700'
+    ctx.font = '20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('🎬', watchAdButton.x + watchAdButton.width / 2, watchAdButton.y + watchAdButton.height / 2 - 8)
+
+    // 文字
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '12px Arial'
+    ctx.fillText('观看广告+10积分', watchAdButton.x + watchAdButton.width / 2, watchAdButton.y + watchAdButton.height / 2 + 12)
   }
 
   /**
@@ -564,6 +600,11 @@ export default class Menu {
     if (this.isPointInButton(x, y, this.uiPositions.dailySignIn)) {
       this.buttonStates.dailySignIn.hovered = true
     }
+
+    // 检查观看广告按钮
+    if (this.isPointInButton(x, y, this.uiPositions.watchAdButton)) {
+      this.buttonStates.watchAd.hovered = true
+    }
   }
 
   /**
@@ -605,7 +646,12 @@ export default class Menu {
     if (this.isPointInButton(x, y, this.uiPositions.dailySignIn)) {
       return this.handleDailySignIn()
     }
-    
+
+    // 检查观看广告按钮点击
+    if (this.isPointInButton(x, y, this.uiPositions.watchAdButton)) {
+      return this.handleWatchAd()
+    }
+
     // 检查顶部按钮
     if (this.isPointInButton(x, y, this.uiPositions.settingsButton)) {
       return 'settings'
@@ -613,7 +659,7 @@ export default class Menu {
     if (this.isPointInButton(x, y, this.uiPositions.mailButton)) {
       return 'mail'
     }
-    
+
     return null
   }
 
@@ -624,19 +670,31 @@ export default class Menu {
     if (!this.dailySignInData.isSignedToday) {
       this.dailySignInData.isSignedToday = true
       this.dailySignInData.consecutiveDays++
-      
+
       // 发放奖励
       const reward = this.dailySignInData.rewards[Math.min(this.dailySignInData.consecutiveDays - 1, 6)]
       if (this.userInfo) {
         this.userInfo.addScore(reward)
       }
-      
+
       // 添加签到成功特效
       this.spawnSignInParticles()
-      
+
       return 'dailySignInSuccess'
     }
+
     return 'dailySignInAlready'
+  }
+
+  /**
+   * 处理观看广告
+   */
+  handleWatchAd() {
+    if (this.main && this.main.adManager) {
+      this.main.adManager.showRewardedVideo()
+      return 'watchAd'
+    }
+    return null
   }
 
   /**

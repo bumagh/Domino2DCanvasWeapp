@@ -101,6 +101,18 @@ export default class EventManager {
             return;
         }
 
+        // 处理图鉴界面触摸事件
+        if (this.main.collection && this.databus.gameState === 'collection') {
+            const collectionAction = this.main.collection.handleClick(x, y);
+            if (collectionAction === 'back') {
+                this.main.exitCollection();
+                return;
+            }
+            // 更新图鉴悬停状态
+            this.main.collection.handleMouseMove(x, y);
+            return;
+        }
+
         // 处理UI按钮点击
         if (this.gameInfo.handleMenuButtonClick(x, y)) {
             // this.toggleMenuModal();
@@ -337,6 +349,10 @@ export default class EventManager {
                 // 自由模式：直接进入自由游戏
                 this.main.startDominoChainGame('freePlay');
                 break;
+            case 'collection':
+                // 进入图鉴界面
+                this.main.enterCollection();
+                break;
             case 'restart':
                 this.main.restartGame();
                 break;
@@ -351,6 +367,9 @@ export default class EventManager {
                 break;
             case 'claim':
                 this.claimPoints();
+                break;
+            case 'watchAd':
+                // 观看广告获得奖励（已在Menu.handleWatchAd中处理）
                 break;
         }
     }

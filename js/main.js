@@ -7,6 +7,8 @@ import { SCREEN_WIDTH, SCREEN_HEIGHT } from './render.js';
 import EventManager from './game/eventmanager.js'  // 导入事件管理器
 import UserInfo from './userinfo.js'
 import Menu from './menu.js'
+import AdManager from './game/admanager.js'
+import Collection from './game/collection.js'
 
 // 子游戏（模块化）
 import DominoChainGame from './game/subgames/domino_chain_game.js'
@@ -27,6 +29,7 @@ export default class Main {
   eventManager = null  // 事件管理器
   userInfo = null  // 用户信息实例
   menu = null  // 菜单实例
+  adManager = null  // 广告管理器
 
   // 子游戏：当前运行的子游戏实例（为 null 表示主游戏模式）
   subGame = null
@@ -36,6 +39,9 @@ export default class Main {
   bgmAudio = null
   collisionAudio = null
   _lastCollisionTime = 0
+
+  // 图鉴管理器
+  collection = null
 
   constructor() {
     this.init()
@@ -69,7 +75,7 @@ export default class Main {
     databus.mapHeight = canvas.height * 10
     this.bg = new Background(canvas.width, canvas.height, databus.mapHeight)
     this.userInfo = new UserInfo(databus)
-    this.menu = new Menu(databus, this.userInfo)
+    this.menu = new Menu(databus, this.userInfo, this)
     this.gameInfo = new GameInfo(databus, this.userInfo)
     camera = new Camera(canvas.width, canvas.height, databus.mapHeight)
 
@@ -93,7 +99,83 @@ export default class Main {
 
     this.eventManager.init()
     this.initAudio()
+    this.initAdManager()
+    this.initCollection()
 
+  }
+
+  /**
+   * 初始化图鉴管理器
+   */
+  initCollection() {
+    this.collection = new Collection(databus, this.userInfo)
+  }
+
+  /**
+   * 进入图鉴界面
+   */
+  enterCollection() {
+    databus.gameState = 'collection'
+    // 隐藏横幅广告
+    this.adManager?.hideBanner?.()
+  }
+
+  /**
+   * 退出图鉴界面
+   */
+  exitCollection() {
+    databus.gameState = 'menu'
+    // 显示横幅广告
+    this.adManager?.showBanner?.()
+  }
+
+  /**
+   * 初始化广告管理器
+   */
+  initAdManager() {
+    this.adManager = new AdManager()
+    this.adManager.init()
+
+    // 设置广告事件回调
+    this.adManager.setCallbacks({
+      onLoadSuccess: () => {
+        console.log('广告加载成功')
+      },
+      onLoadError: (err) => {
+        console.error('广告加载失败', err)
+      },
+      onReward: () => {
+        // 激励视频看完，发放奖励
+        const rewardAmount = 10
+        this.userInfo.score += rewardAmount
+        wx.showToast({
+          title: `获得${rewardAmount}积分！`,
+          icon: 'success'
+        })
+      },
+      onIncomplete: () => {
+        wx.showToast({
+          title: '未看完广告，无法获得奖励',
+          icon: 'none'
+        })
+      },
+      onShowError: (err) => {
+        console.error('广告显示失败', err)
+        wx.showToast({
+          title: '广告加载失败',
+          icon: 'none'
+        })
+      },
+      onNotAvailable: () => {
+        wx.showToast({
+          title: '广告功能暂不可用',
+          icon: 'none'
+        })
+      },
+      onInterstitialError: (err) => {
+        console.error('插屏广告错误', err)
+      }
+    })
   }
 
   initAudio() {
@@ -141,6 +223,11 @@ export default class Main {
     if (this.menu && typeof this.menu.update === 'function') {
       this.menu.update(16) // 传入deltaTime
     }
+
+    // 更新图鉴
+    if (this.collection && typeof this.collection.update === 'function') {
+      this.collection.update(16)
+    }
   }
 
   /**
@@ -161,6 +248,11 @@ export default class Main {
       // 菜单状态：渲染菜单界面
       if (this.menu && typeof this.menu.render === 'function') {
         this.menu.render(ctx, canvas.width, canvas.height)
+      }
+    } else if (databus.gameState === 'collection') {
+      // 图鉴状态：渲染图鉴界面
+      if (this.collection && typeof this.collection.render === 'function') {
+        this.collection.render(ctx, canvas.width, canvas.height)
       }
     } else {
       // 游戏状态：渲染游戏界面
@@ -309,6 +401,9 @@ export default class Main {
   enterSubGame(subGameInstance) {
     //关闭著游戏音乐
     this.bgmAudio?.stop?.()
+    // 隐藏横幅广告
+    this.adManager?.hideBanner?.()
+
     // 退出引导/UI弹窗，避免叠加
     if (this.guide) this.guide.isActive = false
     if (this.gameInfo?.uiPositions) {

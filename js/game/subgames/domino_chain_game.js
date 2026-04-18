@@ -266,6 +266,13 @@ export default class DominoChainGame extends SubGameBase {
     endGame() {
         this.isSimulating = false
         this.showingResult = true
+
+        // 延迟显示插屏广告
+        if (this.main && this.main.adManager) {
+            setTimeout(() => {
+                this.main.adManager.showInterstitial()
+            }, 500)
+        }
         
         if (this.currentLevel) {
             // 关卡模式：根据目标判断
