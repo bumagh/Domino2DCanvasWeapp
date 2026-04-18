@@ -99,6 +99,9 @@ export default class EventManager {
             if (this.menu.signInModal && this.menu.signInModal.visible) {
                 return;
             }
+            if (this.menu.taskModal && this.menu.taskModal.visible) {
+                return;
+            }
 
             // 更新菜单悬停状态
             this.menu.handleMouseMove(x, y);
@@ -362,6 +365,13 @@ export default class EventManager {
             case 'signInAction':
             case 'modalClick':
                 // 签到弹窗相关动作（已在Menu中处理）
+                break;
+            case 'taskModal':
+            case 'closeTaskModal':
+            case 'taskTabDaily':
+            case 'taskTabAchievement':
+            case 'taskClaim':
+                // 任务弹窗相关动作（已在Menu中处理）
                 break;
             case 'restart':
                 this.main.restartGame();

@@ -4,11 +4,12 @@
  */
 
 export default class Menu {
-  constructor(databus, userInfo, main = null, signInManager = null) {
+  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null) {
     this.databus = databus
     this.userInfo = userInfo
     this.main = main  // 添加 main 引用，用于访问广告管理器
     this.signInManager = signInManager  // 添加签到管理器
+    this.taskManager = taskManager  // 添加任务管理器
 
     // 刘海屏安全区域偏移量
     this.safeAreaTop = 50
@@ -75,7 +76,18 @@ export default class Menu {
         reward: reward
       })
     })
-    
+
+    // 任务弹窗配置
+    this.taskModal = {
+      visible: false,
+      position: { x: 30, y: 100, width: 340, height: 550 },
+      closeButton: { x: 340, y: 110, width: 30, height: 30 },
+      tabDaily: { x: 50, y: 150, width: 140, height: 40 },
+      tabAchievement: { x: 210, y: 150, width: 140, height: 40 },
+      currentTab: 'daily', // daily 或 achievement
+      taskItems: [] // 将在渲染时动态计算
+    }
+
     // 按钮状态
     this.buttonStates = {
       startGame: { hovered: false, pressed: false },
@@ -159,6 +171,11 @@ export default class Menu {
     // 绘制签到弹窗
     if (this.signInModal.visible) {
       this.drawSignInModal(ctx)
+    }
+
+    // 绘制任务弹窗
+    if (this.taskModal.visible) {
+      this.drawTaskModal(ctx)
     }
 
     // 绘制粒子效果
@@ -676,6 +693,137 @@ export default class Menu {
   }
 
   /**
+   * 绘制任务弹窗
+   */
+  drawTaskModal(ctx) {
+    const modal = this.taskModal
+    const tasks = this.taskManager ? this.taskManager.getTasks(modal.currentTab) : []
+
+    // 全屏遮罩层（防止穿透）
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+
+    // 弹窗背景
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'
+    ctx.fillRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+
+    // 边框
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)'
+    ctx.lineWidth = 3
+    ctx.strokeRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+
+    // 标题
+    ctx.fillStyle = '#FFD700'
+    ctx.font = 'bold 20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('任务中心', modal.position.x + modal.position.width / 2, modal.position.y + 30)
+
+    // 关闭按钮
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+    ctx.fillRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 20px Arial'
+    ctx.fillText('✕', modal.closeButton.x + modal.closeButton.width / 2, modal.closeButton.y + modal.closeButton.height / 2)
+
+    // 标签页
+    const tabDailyColor = modal.currentTab === 'daily' ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'
+    const tabAchievementColor = modal.currentTab === 'achievement' ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'
+
+    ctx.fillStyle = tabDailyColor
+    ctx.fillRect(modal.tabDaily.x, modal.tabDaily.y, modal.tabDaily.width, modal.tabDaily.height)
+    ctx.strokeStyle = modal.currentTab === 'daily' ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(modal.tabDaily.x, modal.tabDaily.y, modal.tabDaily.width, modal.tabDaily.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '14px Arial'
+    ctx.fillText('每日任务', modal.tabDaily.x + modal.tabDaily.width / 2, modal.tabDaily.y + modal.tabDaily.height / 2)
+
+    ctx.fillStyle = tabAchievementColor
+    ctx.fillRect(modal.tabAchievement.x, modal.tabAchievement.y, modal.tabAchievement.width, modal.tabAchievement.height)
+    ctx.strokeStyle = modal.currentTab === 'achievement' ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+    ctx.strokeRect(modal.tabAchievement.x, modal.tabAchievement.y, modal.tabAchievement.width, modal.tabAchievement.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText('成就任务', modal.tabAchievement.x + modal.tabAchievement.width / 2, modal.tabAchievement.y + modal.tabAchievement.height / 2)
+
+    // 绘制任务列表
+    let startY = 210
+    tasks.forEach((task, index) => {
+      const taskY = startY + index * 90
+      const itemHeight = 80
+
+      // 任务背景
+      ctx.fillStyle = task.completed ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)'
+      ctx.fillRect(modal.position.x + 15, taskY, modal.position.width - 30, itemHeight)
+      ctx.strokeStyle = task.completed ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 255, 255, 0.2)'
+      ctx.lineWidth = 1
+      ctx.strokeRect(modal.position.x + 15, taskY, modal.position.width - 30, itemHeight)
+
+      // 任务图标
+      ctx.font = '24px Arial'
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(task.icon, modal.position.x + 25, taskY + itemHeight / 2)
+
+      // 任务名称
+      ctx.font = 'bold 14px Arial'
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText(task.name, modal.position.x + 60, taskY + 25)
+
+      // 任务描述
+      ctx.font = '11px Arial'
+      ctx.fillStyle = '#aaaaaa'
+      ctx.fillText(task.description, modal.position.x + 60, taskY + 45)
+
+      // 进度条
+      const progressWidth = modal.position.width - 100
+      const progressHeight = 6
+      const progressX = modal.position.x + 60
+      const progressY = taskY + 60
+      const progressPercent = Math.min(task.currentProgress / task.target, 1)
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+      ctx.fillRect(progressX, progressY, progressWidth, progressHeight)
+      ctx.fillStyle = task.completed ? '#00ff00' : '#FFD700'
+      ctx.fillRect(progressX, progressY, progressWidth * progressPercent, progressHeight)
+
+      // 进度文字
+      ctx.font = '10px Arial'
+      ctx.fillStyle = '#ffffff'
+      ctx.textAlign = 'right'
+      ctx.fillText(`${task.currentProgress}/${task.target}`, modal.position.x + modal.position.width - 20, progressY + 3)
+
+      // 领取按钮
+      if (task.completed && !task.claimed) {
+        const claimButton = {
+          x: modal.position.x + modal.position.width - 80,
+          y: taskY + 20,
+          width: 60,
+          height: 30
+        }
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.3)'
+        ctx.fillRect(claimButton.x, claimButton.y, claimButton.width, claimButton.height)
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)'
+        ctx.lineWidth = 1
+        ctx.strokeRect(claimButton.x, claimButton.y, claimButton.width, claimButton.height)
+        ctx.fillStyle = '#FFD700'
+        ctx.font = '12px Arial'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('领取', claimButton.x + claimButton.width / 2, claimButton.y + claimButton.height / 2)
+      } else if (task.claimed) {
+        ctx.fillStyle = '#00ff00'
+        ctx.font = '12px Arial'
+        ctx.textAlign = 'right'
+        ctx.fillText('已领取', modal.position.x + modal.position.width - 20, taskY + 25)
+      }
+    })
+  }
+
+  /**
    * 绘制观看广告按钮
    */
   drawWatchAdButton(ctx) {
@@ -790,6 +938,59 @@ export default class Menu {
       return 'modalClick'
     }
 
+    // 优先检查任务弹窗（如果弹窗显示，拦截所有点击）
+    if (this.taskModal.visible) {
+      // 关闭按钮
+      if (this.isPointInButton(x, y, this.taskModal.closeButton)) {
+        this.taskModal.visible = false
+        return 'closeTaskModal'
+      }
+      // 标签页切换
+      if (this.isPointInButton(x, y, this.taskModal.tabDaily)) {
+        this.taskModal.currentTab = 'daily'
+        return 'taskTabDaily'
+      }
+      if (this.isPointInButton(x, y, this.taskModal.tabAchievement)) {
+        this.taskModal.currentTab = 'achievement'
+        return 'taskTabAchievement'
+      }
+      // 检查领取按钮点击
+      const tasks = this.taskManager ? this.taskManager.getTasks(this.taskModal.currentTab) : []
+      let startY = 210
+      tasks.forEach((task, index) => {
+        if (task.completed && !task.claimed) {
+          const claimButton = {
+            x: this.taskModal.position.x + this.taskModal.position.width - 80,
+            y: startY + index * 90 + 20,
+            width: 60,
+            height: 30
+          }
+          if (this.isPointInButton(x, y, claimButton)) {
+            const result = this.taskManager.claimReward(task.id, this.taskModal.currentTab)
+            if (result.success) {
+              wx.showToast({
+                title: `领取成功！获得${result.reward}积分`,
+                icon: 'success'
+              })
+            } else {
+              wx.showToast({
+                title: result.message,
+                icon: 'none'
+              })
+            }
+            return 'taskClaim'
+          }
+        }
+      })
+      // 点击弹窗外部关闭（遮罩层）
+      if (!this.isPointInButton(x, y, this.taskModal.position)) {
+        this.taskModal.visible = false
+        return 'closeTaskModal'
+      }
+      // 点击弹窗内部（但不点击按钮），不穿透到下一层
+      return 'modalClick'
+    }
+
     // 检查主要按钮点击
     if (this.isPointInButton(x, y, this.uiPositions.startGameButton)) {
       return 'startGame'
@@ -809,7 +1010,9 @@ export default class Menu {
 
     // 检查导航按钮点击
     if (this.isPointInButton(x, y, this.uiPositions.navButtons.task)) {
-      return 'task'
+      // 打开任务弹窗
+      this.taskModal.visible = true
+      return 'taskModal'
     }
     if (this.isPointInButton(x, y, this.uiPositions.navButtons.shop)) {
       return 'shop'
