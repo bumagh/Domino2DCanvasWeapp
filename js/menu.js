@@ -165,8 +165,17 @@ export default class Menu {
     this.animations = {
       avatarRotation: 0,
       buttonScale: {},
-      particles: []
+      buttonOpacity: {},
+      particles: [],
+      animationStartTime: Date.now()
     }
+
+    // 初始化按钮动画状态
+    const buttonKeys = ['startGame', 'quickChallenge', 'collection', 'creativeWorkshop', 'myStudio', 'inventory']
+    buttonKeys.forEach((key, index) => {
+      this.animations.buttonScale[key] = 0
+      this.animations.buttonOpacity[key] = 0
+    })
   }
 
   /**
@@ -175,8 +184,42 @@ export default class Menu {
   update(deltaTime) {
     // 更新头像旋转动画
     // this.animations.avatarRotation += 0.01
-    
-    // 更新按钮缩放动画
+
+    // 更新按钮入场动画
+    const elapsed = Date.now() - this.animations.animationStartTime
+    const buttonKeys = ['startGame', 'quickChallenge', 'collection', 'creativeWorkshop', 'myStudio', 'inventory']
+
+    buttonKeys.forEach((key, index) => {
+      const delay = index * 100 // 每个按钮延迟100ms
+      const duration = 500 // 动画持续时间500ms
+      const animationProgress = Math.max(0, Math.min(1, (elapsed - delay) / duration))
+
+      // 使用easeOutBack缓动函数
+      const easeOutBack = (t) => {
+        const c1 = 1.70158
+        const c3 = c1 + 1
+        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2)
+      }
+
+      const scale = easeOutBack(animationProgress)
+      const opacity = animationProgress
+
+      this.animations.buttonScale[key] = scale
+      this.animations.buttonOpacity[key] = opacity
+    })
+
+    // 更新粒子效果
+    this.updateParticles()
+  }
+
+  /**
+   * 更新菜单动画
+   */
+  updateAnimations() {
+    // 更新头像旋转动画
+    this.animations.avatarRotation += 0.01
+
+    // 更新按钮缩放动画（悬停效果）
     for (let buttonName in this.buttonStates) {
       const state = this.buttonStates[buttonName]
       if (state.hovered) {
@@ -185,7 +228,7 @@ export default class Menu {
         this.animations.buttonScale[buttonName] = Math.max(1, this.animations.buttonScale[buttonName] || 1)
       }
     }
-    
+
     // 更新粒子效果
     this.updateParticles()
   }
@@ -512,10 +555,14 @@ export default class Menu {
     ]
 
     buttons.forEach(button => {
+      // 添加入场动画
+      const scale = this.animations.buttonScale[button.key] || 1
+      const opacity = this.animations.buttonOpacity[button.key] || 1
+
       if (button.color1) {
-        this.drawColoredButton(ctx, button.text, button.pos, this.buttonStates[button.key], button.color1, button.color2)
+        this.drawColoredButton(ctx, button.text, button.pos, this.buttonStates[button.key], button.color1, button.color2, scale, opacity)
       } else {
-        this.drawMainButton(ctx, button.text, button.pos, this.buttonStates[button.key], this.animations.buttonScale[button.key] || 1)
+        this.drawMainButton(ctx, button.text, button.pos, this.buttonStates[button.key], scale, opacity)
       }
     })
   }
@@ -523,9 +570,15 @@ export default class Menu {
   /**
    * 绘制彩色按钮（新增）
    */
-  drawColoredButton(ctx, text, position, state, color1, color2) {
+  drawColoredButton(ctx, text, position, state, color1, color2, scale = 1, opacity = 1) {
     const centerX = position.x + position.width / 2
     const centerY = position.y + position.height / 2
+
+    ctx.save()
+    ctx.globalAlpha = opacity
+    ctx.translate(centerX, centerY)
+    ctx.scale(scale, scale)
+    ctx.translate(-centerX, -centerY)
     
     // 按钮渐变背景
     const gradient = ctx.createLinearGradient(position.x, position.y, position.x, position.y + position.height)
@@ -547,28 +600,31 @@ export default class Menu {
     ctx.quadraticCurveTo(position.x, position.y, position.x + radius, position.y)
     ctx.closePath()
     ctx.fill()
-    
-    // 按钮边框高光
+
+    // 按钮边框
     ctx.strokeStyle = state.hovered ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.3)'
     ctx.lineWidth = 2
-    ctx.stroke()
-    
+    ctx.strokeRect(position.x, position.y, position.width, position.height)
+
     // 按钮文字
-    ctx.fillStyle = '#fff'
-    ctx.font = 'bold 16px Arial'
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '16px Arial'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(text, centerX, centerY)
+
+    ctx.restore()
   }
 
   /**
-   * 绘制主要按钮
+   * 绘制主按钮
    */
-  drawMainButton(ctx, text, position, state, scale = 1) {
+  drawMainButton(ctx, text, position, state, scale = 1, opacity = 1) {
     const centerX = position.x + position.width / 2
     const centerY = position.y + position.height / 2
-    
+
     ctx.save()
+    ctx.globalAlpha = opacity
     ctx.translate(centerX, centerY)
     ctx.scale(scale, scale)
     ctx.translate(-centerX, -centerY)
@@ -600,7 +656,7 @@ export default class Menu {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(text, centerX, centerY)
-    
+
     ctx.restore()
   }
 
