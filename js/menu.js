@@ -4,7 +4,7 @@
  */
 
 export default class Menu {
-  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null, shopManager = null, settingsManager = null, announcementManager = null, inventoryManager = null, guideManager = null, tutorialManager = null) {
+  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null, shopManager = null, settingsManager = null, announcementManager = null, inventoryManager = null, guideManager = null, tutorialManager = null, feedbackManager = null) {
     this.databus = databus
     this.userInfo = userInfo
     this.main = main  // 添加 main 引用，用于访问广告管理器
@@ -16,6 +16,7 @@ export default class Menu {
     this.inventoryManager = inventoryManager  // 添加背包管理器
     this.guideManager = guideManager  // 添加引导管理器
     this.tutorialManager = tutorialManager  // 添加教程管理器
+    this.feedbackManager = feedbackManager  // 添加反馈管理器
 
     // 刘海屏安全区域偏移量
     this.safeAreaTop = 50
@@ -269,6 +270,11 @@ export default class Menu {
 
     // 绘制粒子效果
     this.renderParticles(ctx)
+
+    // 绘制反馈效果
+    if (this.feedbackManager) {
+      this.feedbackManager.render(ctx)
+    }
   }
 
   /**
@@ -1931,23 +1937,47 @@ export default class Menu {
 
     // 检查主要按钮点击
     if (this.isPointInButton(x, y, this.uiPositions.startGameButton)) {
+      if (this.feedbackManager) {
+        this.feedbackManager.addParticles(x, y, '#4CAF50', 10, 'burst')
+        this.feedbackManager.playSound('button_click')
+      }
       return 'startGame'
     }
     if (this.isPointInButton(x, y, this.uiPositions.quickChallengeButton)) {
+      if (this.feedbackManager) {
+        this.feedbackManager.addParticles(x, y, '#2196F3', 10, 'burst')
+        this.feedbackManager.playSound('button_click')
+      }
       return 'quickChallenge'
     }
     if (this.isPointInButton(x, y, this.uiPositions.collectionButton)) {
+      if (this.feedbackManager) {
+        this.feedbackManager.addParticles(x, y, '#ffffff', 10, 'burst')
+        this.feedbackManager.playSound('button_click')
+      }
       return 'collection'
     }
     if (this.isPointInButton(x, y, this.uiPositions.creativeWorkshopButton)) {
+      if (this.feedbackManager) {
+        this.feedbackManager.addParticles(x, y, '#ffffff', 10, 'burst')
+        this.feedbackManager.playSound('button_click')
+      }
       return 'creativeWorkshop'
     }
     if (this.isPointInButton(x, y, this.uiPositions.myStudioButton)) {
+      if (this.feedbackManager) {
+        this.feedbackManager.addParticles(x, y, '#ffffff', 10, 'burst')
+        this.feedbackManager.playSound('button_click')
+      }
       return 'myStudio'
     }
     if (this.isPointInButton(x, y, this.uiPositions.inventoryButton)) {
       // 打开背包弹窗
       this.inventoryModal.visible = true
+      if (this.feedbackManager) {
+        this.feedbackManager.addParticles(x, y, '#FF9800', 10, 'burst')
+        this.feedbackManager.playSound('button_click')
+      }
       return 'inventoryModal'
     }
 
