@@ -4,7 +4,7 @@
  */
 
 export default class Menu {
-  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null, shopManager = null, settingsManager = null, announcementManager = null) {
+  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null, shopManager = null, settingsManager = null, announcementManager = null, inventoryManager = null) {
     this.databus = databus
     this.userInfo = userInfo
     this.main = main  // 添加 main 引用，用于访问广告管理器
@@ -13,6 +13,7 @@ export default class Menu {
     this.shopManager = shopManager  // 添加商店管理器
     this.settingsManager = settingsManager  // 添加设置管理器
     this.announcementManager = announcementManager  // 添加公告管理器
+    this.inventoryManager = inventoryManager  // 添加背包管理器
 
     // 刘海屏安全区域偏移量
     this.safeAreaTop = 50
@@ -27,12 +28,13 @@ export default class Menu {
       avatarArea: { x: 180, y: 270, size: 60 },
       userInfo: { x: 180, y: 340 },
       
-      // 主要功能按钮
-      startGameButton: { x: 130, y: 400, width: 140, height: 50 },
-      quickChallengeButton: { x: 130, y: 460, width: 140, height: 50 },
-      collectionButton: { x: 130, y: 520, width: 140, height: 50 },
-      creativeWorkshopButton: { x: 130, y: 580, width: 140, height: 50 },
-      myStudioButton: { x: 130, y: 640, width: 140, height: 50 },
+      // 主要功能按钮（3行2列布局）
+      startGameButton: { x: 50, y: 400, width: 140, height: 50 },
+      quickChallengeButton: { x: 210, y: 400, width: 140, height: 50 },
+      collectionButton: { x: 50, y: 480, width: 140, height: 50 },
+      creativeWorkshopButton: { x: 210, y: 480, width: 140, height: 50 },
+      myStudioButton: { x: 50, y: 560, width: 140, height: 50 },
+      inventoryButton: { x: 210, y: 560, width: 140, height: 50 },
       
       // 底部导航栏
       navButtons: {
@@ -43,10 +45,7 @@ export default class Menu {
       },
       
       // 每日签到区域
-      dailySignIn: { x: 130, y: 780, width: 140, height: 60 },
-
-      // 观看广告获得奖励按钮
-      watchAdButton: { x: 130, y: 850, width: 140, height: 50 }
+      dailySignIn: { x: 130, y: 650, width: 140, height: 60 }
     }
 
     // 签到弹窗配置
@@ -123,6 +122,18 @@ export default class Menu {
       announcementItems: [] // 将在渲染时动态计算
     }
 
+    // 背包弹窗配置
+    this.inventoryModal = {
+      visible: false,
+      position: { x: 30, y: 80, width: 340, height: 580 },
+      closeButton: { x: 340, y: 90, width: 30, height: 30 },
+      tabItems: { x: 40, y: 140, width: 90, height: 35 },
+      tabSkins: { x: 145, y: 140, width: 90, height: 35 },
+      tabEffects: { x: 250, y: 140, width: 90, height: 35 },
+      currentTab: 'items', // items, skins, effects
+      inventoryItems: [] // 将在渲染时动态计算
+    }
+
     // 按钮状态
     this.buttonStates = {
       startGame: { hovered: false, pressed: false },
@@ -135,7 +146,7 @@ export default class Menu {
       friends: { hovered: false, pressed: false },
       ranking: { hovered: false, pressed: false },
       dailySignIn: { hovered: false, pressed: false },
-      watchAd: { hovered: false, pressed: false }
+      inventory: { hovered: false, pressed: false }
     }
 
     // 动画相关
@@ -200,9 +211,6 @@ export default class Menu {
     // 绘制每日签到区域
     this.drawDailySignIn(ctx)
 
-    // 绘制观看广告按钮
-    this.drawWatchAdButton(ctx)
-
     // 绘制签到弹窗
     if (this.signInModal.visible) {
       this.drawSignInModal(ctx)
@@ -226,6 +234,11 @@ export default class Menu {
     // 绘制公告弹窗
     if (this.announcementModal.visible) {
       this.drawAnnouncementModal(ctx)
+    }
+
+    // 绘制背包弹窗
+    if (this.inventoryModal.visible) {
+      this.drawInventoryModal(ctx)
     }
 
     // 绘制粒子效果
@@ -462,9 +475,10 @@ export default class Menu {
       { key: 'quickChallenge', text: '🎮 自由模式', pos: this.uiPositions.quickChallengeButton, color1: '#2196F3', color2: '#1565C0' },
       { key: 'collection', text: '我的图鉴', pos: this.uiPositions.collectionButton },
       { key: 'creativeWorkshop', text: '创意工坊', pos: this.uiPositions.creativeWorkshopButton },
-      { key: 'myStudio', text: '我的工作室', pos: this.uiPositions.myStudioButton }
+      { key: 'myStudio', text: '我的工作室', pos: this.uiPositions.myStudioButton },
+      { key: 'inventory', text: '🎒 背包', pos: this.uiPositions.inventoryButton, color1: '#FF9800', color2: '#F57C00' }
     ]
-    
+
     buttons.forEach(button => {
       if (button.color1) {
         this.drawColoredButton(ctx, button.text, button.pos, this.buttonStates[button.key], button.color1, button.color2)
@@ -1266,31 +1280,177 @@ export default class Menu {
   }
 
   /**
-   * 绘制观看广告按钮
+   * 绘制背包弹窗
    */
-  drawWatchAdButton(ctx) {
-    const { watchAdButton } = this.uiPositions
-    const state = this.buttonStates.watchAd
+  drawInventoryModal(ctx) {
+    const modal = this.inventoryModal
+    const inventory = this.inventoryManager ? {
+      items: this.inventoryManager.getAllItems(),
+      skins: this.inventoryManager.getAllSkins(),
+      effects: this.inventoryManager.getAllEffects()
+    } : { items: [], skins: [], effects: [] }
+    const currentTab = modal.currentTab
+    const items = inventory[currentTab] || []
 
-    // 按钮背景（金色）
-    ctx.fillStyle = state.hovered ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 215, 0, 0.2)'
-    ctx.fillRect(watchAdButton.x, watchAdButton.y, watchAdButton.width, watchAdButton.height)
+    // 全屏遮罩层（防止穿透）
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
 
+    // 弹窗背景
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'
+    ctx.fillRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+
+    // 边框
     ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)'
-    ctx.lineWidth = 2
-    ctx.strokeRect(watchAdButton.x, watchAdButton.y, watchAdButton.width, watchAdButton.height)
+    ctx.lineWidth = 3
+    ctx.strokeRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
 
-    // 图标
+    // 标题
     ctx.fillStyle = '#FFD700'
-    ctx.font = '20px Arial'
+    ctx.font = 'bold 20px Arial'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText('🎬', watchAdButton.x + watchAdButton.width / 2, watchAdButton.y + watchAdButton.height / 2 - 8)
+    ctx.fillText('背包', modal.position.x + modal.position.width / 2, modal.position.y + 30)
 
-    // 文字
+    // 背包统计
+    if (this.inventoryManager) {
+      const stats = this.inventoryManager.getInventoryStats()
+      ctx.fillStyle = '#aaaaaa'
+      ctx.font = '12px Arial'
+      ctx.textAlign = 'right'
+      ctx.fillText(`物品: ${stats.items} 皮肤: ${stats.skins} 特效: ${stats.effects}`, modal.position.x + modal.position.width - 10, modal.position.y + 30)
+    }
+
+    // 关闭按钮
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+    ctx.fillRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('✕', modal.closeButton.x + modal.closeButton.width / 2, modal.closeButton.y + modal.closeButton.height / 2)
+
+    // 标签页
+    const tabItemsColor = modal.currentTab === 'items' ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'
+    const tabSkinsColor = modal.currentTab === 'skins' ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'
+    const tabEffectsColor = modal.currentTab === 'effects' ? 'rgba(255, 215, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'
+
+    ctx.fillStyle = tabItemsColor
+    ctx.fillRect(modal.tabItems.x, modal.tabItems.y, modal.tabItems.width, modal.tabItems.height)
+    ctx.strokeStyle = modal.currentTab === 'items' ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(modal.tabItems.x, modal.tabItems.y, modal.tabItems.width, modal.tabItems.height)
     ctx.fillStyle = '#ffffff'
     ctx.font = '12px Arial'
-    ctx.fillText('观看广告+10积分', watchAdButton.x + watchAdButton.width / 2, watchAdButton.y + watchAdButton.height / 2 + 12)
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('道具', modal.tabItems.x + modal.tabItems.width / 2, modal.tabItems.y + modal.tabItems.height / 2)
+
+    ctx.fillStyle = tabSkinsColor
+    ctx.fillRect(modal.tabSkins.x, modal.tabSkins.y, modal.tabSkins.width, modal.tabSkins.height)
+    ctx.strokeStyle = modal.currentTab === 'skins' ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+    ctx.strokeRect(modal.tabSkins.x, modal.tabSkins.y, modal.tabSkins.width, modal.tabSkins.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText('皮肤', modal.tabSkins.x + modal.tabSkins.width / 2, modal.tabSkins.y + modal.tabSkins.height / 2)
+
+    ctx.fillStyle = tabEffectsColor
+    ctx.fillRect(modal.tabEffects.x, modal.tabEffects.y, modal.tabEffects.width, modal.tabEffects.height)
+    ctx.strokeStyle = modal.currentTab === 'effects' ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+    ctx.strokeRect(modal.tabEffects.x, modal.tabEffects.y, modal.tabEffects.width, modal.tabEffects.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText('特效', modal.tabEffects.x + modal.tabEffects.width / 2, modal.tabEffects.y + modal.tabEffects.height / 2)
+
+    // 绘制物品列表
+    if (items.length === 0) {
+      ctx.fillStyle = '#888888'
+      ctx.font = '14px Arial'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('暂无物品', modal.position.x + modal.position.width / 2, modal.position.y + 350)
+    } else {
+      let startY = 200
+      items.forEach((item, index) => {
+        const itemY = modal.position.y + startY + index * 110
+        const itemHeight = 100
+
+        // 物品背景
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)'
+        ctx.fillRect(modal.position.x + 15, itemY, modal.position.width - 30, itemHeight)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
+        ctx.lineWidth = 1
+        ctx.strokeRect(modal.position.x + 15, itemY, modal.position.width - 30, itemHeight)
+
+        // 物品图标
+        ctx.font = '32px Arial'
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(item.icon, modal.position.x + 30, itemY + 30)
+
+        // 物品名称
+        ctx.font = 'bold 14px Arial'
+        ctx.fillStyle = '#ffffff'
+        ctx.fillText(item.name, modal.position.x + 80, itemY + 25)
+
+        // 物品描述
+        ctx.font = '11px Arial'
+        ctx.fillStyle = '#aaaaaa'
+        ctx.fillText(item.description, modal.position.x + 80, itemY + 50)
+
+        // 数量或装备状态
+        if (currentTab === 'items') {
+          ctx.fillStyle = '#FFD700'
+          ctx.font = 'bold 14px Arial'
+          ctx.textAlign = 'right'
+          ctx.fillText(`x${item.count}`, modal.position.x + modal.position.width - 30, itemY + 30)
+
+          // 使用按钮
+          const useButton = {
+            x: modal.position.x + modal.position.width - 85,
+            y: itemY + 65,
+            width: 60,
+            height: 25
+          }
+          ctx.fillStyle = 'rgba(0, 255, 0, 0.2)'
+          ctx.fillRect(useButton.x, useButton.y, useButton.width, useButton.height)
+          ctx.strokeStyle = 'rgba(0, 255, 0, 0.4)'
+          ctx.lineWidth = 1
+          ctx.strokeRect(useButton.x, useButton.y, useButton.width, useButton.height)
+          ctx.fillStyle = '#00ff00'
+          ctx.font = '12px Arial'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText('使用', useButton.x + useButton.width / 2, useButton.y + useButton.height / 2)
+        } else {
+          // 装备状态
+          const isEquipped = item.equipped
+          ctx.fillStyle = isEquipped ? '#00ff00' : '#888888'
+          ctx.font = 'bold 12px Arial'
+          ctx.textAlign = 'right'
+          ctx.fillText(isEquipped ? '已装备' : '未装备', modal.position.x + modal.position.width - 30, itemY + 30)
+
+          // 装备/卸载按钮
+          const equipButton = {
+            x: modal.position.x + modal.position.width - 85,
+            y: itemY + 65,
+            width: 60,
+            height: 25
+          }
+          ctx.fillStyle = isEquipped ? 'rgba(255, 100, 100, 0.2)' : 'rgba(0, 255, 0, 0.2)'
+          ctx.fillRect(equipButton.x, equipButton.y, equipButton.width, equipButton.height)
+          ctx.strokeStyle = isEquipped ? 'rgba(255, 100, 100, 0.4)' : 'rgba(0, 255, 0, 0.4)'
+          ctx.lineWidth = 1
+          ctx.strokeRect(equipButton.x, equipButton.y, equipButton.width, equipButton.height)
+          ctx.fillStyle = isEquipped ? '#ff6464' : '#00ff00'
+          ctx.font = '12px Arial'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(isEquipped ? '卸载' : '装备', equipButton.x + equipButton.width / 2, equipButton.y + equipButton.height / 2)
+        }
+      })
+    }
   }
 
   /**
@@ -1316,9 +1476,10 @@ export default class Menu {
       { key: 'quickChallenge', pos: this.uiPositions.quickChallengeButton },
       { key: 'collection', pos: this.uiPositions.collectionButton },
       { key: 'creativeWorkshop', pos: this.uiPositions.creativeWorkshopButton },
-      { key: 'myStudio', pos: this.uiPositions.myStudioButton }
+      { key: 'myStudio', pos: this.uiPositions.myStudioButton },
+      { key: 'inventory', pos: this.uiPositions.inventoryButton }
     ]
-    
+
     mainButtons.forEach(button => {
       if (this.isPointInButton(x, y, button.pos)) {
         this.buttonStates[button.key].hovered = true
@@ -1335,11 +1496,6 @@ export default class Menu {
     // 检查每日签到
     if (this.isPointInButton(x, y, this.uiPositions.dailySignIn)) {
       this.buttonStates.dailySignIn.hovered = true
-    }
-
-    // 检查观看广告按钮
-    if (this.isPointInButton(x, y, this.uiPositions.watchAdButton)) {
-      this.buttonStates.watchAd.hovered = true
     }
   }
 
@@ -1601,6 +1757,110 @@ export default class Menu {
       return 'modalClick'
     }
 
+    // 优先检查背包弹窗（如果弹窗显示，拦截所有点击）
+    if (this.inventoryModal.visible) {
+      // 关闭按钮
+      if (this.isPointInButton(x, y, this.inventoryModal.closeButton)) {
+        this.inventoryModal.visible = false
+        return 'closeInventoryModal'
+      }
+      // 标签页切换
+      if (this.isPointInButton(x, y, this.inventoryModal.tabItems)) {
+        this.inventoryModal.currentTab = 'items'
+        return 'inventoryTabItems'
+      }
+      if (this.isPointInButton(x, y, this.inventoryModal.tabSkins)) {
+        this.inventoryModal.currentTab = 'skins'
+        return 'inventoryTabSkins'
+      }
+      if (this.isPointInButton(x, y, this.inventoryModal.tabEffects)) {
+        this.inventoryModal.currentTab = 'effects'
+        return 'inventoryTabEffects'
+      }
+      // 检查物品按钮点击
+      const inventory = this.inventoryManager ? {
+        items: this.inventoryManager.getAllItems(),
+        skins: this.inventoryManager.getAllSkins(),
+        effects: this.inventoryManager.getAllEffects()
+      } : { items: [], skins: [], effects: [] }
+      const items = inventory[this.inventoryModal.currentTab] || []
+      let startY = 200
+      items.forEach((item, index) => {
+        const itemY = this.inventoryModal.position.y + startY + index * 110
+        if (this.inventoryModal.currentTab === 'items') {
+          // 使用按钮
+          const useButton = {
+            x: this.inventoryModal.position.x + this.inventoryModal.position.width - 85,
+            y: itemY + 65,
+            width: 60,
+            height: 25
+          }
+          if (this.isPointInButton(x, y, useButton)) {
+            const result = this.inventoryManager.useItem(item.id)
+            if (result.success) {
+              wx.showToast({
+                title: '使用成功',
+                icon: 'success'
+              })
+            } else {
+              wx.showToast({
+                title: result.message,
+                icon: 'none'
+              })
+            }
+            return 'inventoryUse'
+          }
+        } else {
+          // 装备/卸载按钮
+          const equipButton = {
+            x: this.inventoryModal.position.x + this.inventoryModal.position.width - 85,
+            y: itemY + 65,
+            width: 60,
+            height: 25
+          }
+          if (this.isPointInButton(x, y, equipButton)) {
+            if (this.inventoryModal.currentTab === 'skins') {
+              if (item.equipped) {
+                this.inventoryManager.unequipSkin()
+                wx.showToast({
+                  title: '已卸载',
+                  icon: 'success'
+                })
+              } else {
+                this.inventoryManager.equipSkin(item.id)
+                wx.showToast({
+                  title: '已装备',
+                  icon: 'success'
+                })
+              }
+            } else if (this.inventoryModal.currentTab === 'effects') {
+              if (item.equipped) {
+                this.inventoryManager.unequipEffect()
+                wx.showToast({
+                  title: '已卸载',
+                  icon: 'success'
+                })
+              } else {
+                this.inventoryManager.equipEffect(item.id)
+                wx.showToast({
+                  title: '已装备',
+                  icon: 'success'
+                })
+              }
+            }
+            return 'inventoryEquip'
+          }
+        }
+      })
+      // 点击弹窗外部关闭（遮罩层）
+      if (!this.isPointInButton(x, y, this.inventoryModal.position)) {
+        this.inventoryModal.visible = false
+        return 'closeInventoryModal'
+      }
+      // 点击弹窗内部（但不点击按钮），不穿透到下一层
+      return 'modalClick'
+    }
+
     // 检查主要按钮点击
     if (this.isPointInButton(x, y, this.uiPositions.startGameButton)) {
       return 'startGame'
@@ -1616,6 +1876,11 @@ export default class Menu {
     }
     if (this.isPointInButton(x, y, this.uiPositions.myStudioButton)) {
       return 'myStudio'
+    }
+    if (this.isPointInButton(x, y, this.uiPositions.inventoryButton)) {
+      // 打开背包弹窗
+      this.inventoryModal.visible = true
+      return 'inventoryModal'
     }
 
     // 检查导航按钮点击
@@ -1641,11 +1906,6 @@ export default class Menu {
       return this.handleDailySignIn()
     }
 
-    // 检查观看广告按钮点击
-    if (this.isPointInButton(x, y, this.uiPositions.watchAdButton)) {
-      return this.handleWatchAd()
-    }
-
     // 检查顶部按钮
     if (this.isPointInButton(x, y, this.uiPositions.settingsButton)) {
       // 打开设置弹窗
@@ -1668,17 +1928,6 @@ export default class Menu {
     // 打开签到弹窗
     this.signInModal.visible = true
     return 'dailySignInModal'
-  }
-
-  /**
-   * 处理观看广告
-   */
-  handleWatchAd() {
-    if (this.main && this.main.adManager) {
-      this.main.adManager.showRewardedVideo()
-      return 'watchAd'
-    }
-    return null
   }
 
   /**

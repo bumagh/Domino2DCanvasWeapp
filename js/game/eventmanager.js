@@ -111,6 +111,9 @@ export default class EventManager {
             if (this.menu.announcementModal && this.menu.announcementModal.visible) {
                 return;
             }
+            if (this.menu.inventoryModal && this.menu.inventoryModal.visible) {
+                return;
+            }
 
             // 更新菜单悬停状态
             this.menu.handleMouseMove(x, y);
@@ -403,6 +406,15 @@ export default class EventManager {
             case 'announcementDetail':
             case 'announcementMarkAll':
                 // 公告弹窗相关动作（已在Menu中处理）
+                break;
+            case 'inventoryModal':
+            case 'closeInventoryModal':
+            case 'inventoryTabItems':
+            case 'inventoryTabSkins':
+            case 'inventoryTabEffects':
+            case 'inventoryUse':
+            case 'inventoryEquip':
+                // 背包弹窗相关动作（已在Menu中处理）
                 break;
             case 'restart':
                 this.main.restartGame();
