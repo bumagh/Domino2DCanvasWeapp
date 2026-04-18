@@ -17,7 +17,7 @@ export default class DataBus {
 
   reset() {
     this.frame = 0
-    this.score = 10 // 增加初始积分，让玩家有更多选择
+    this.score = 1000 // 初始积分1000
     this.gameState = 'menu' // menu, idle, preview, betting, running, paused, finished, collection
     this.selectedBall = null
     this.betAmount = 0
