@@ -4,10 +4,11 @@
  */
 
 export default class Menu {
-  constructor(databus, userInfo, main = null) {
+  constructor(databus, userInfo, main = null, signInManager = null) {
     this.databus = databus
     this.userInfo = userInfo
     this.main = main  // 添加 main 引用，用于访问广告管理器
+    this.signInManager = signInManager  // 添加签到管理器
 
     // 刘海屏安全区域偏移量
     this.safeAreaTop = 50
@@ -43,6 +44,37 @@ export default class Menu {
       // 观看广告获得奖励按钮
       watchAdButton: { x: 130, y: 850, width: 140, height: 50 }
     }
+
+    // 签到弹窗配置
+    this.signInModal = {
+      visible: false,
+      position: { x: 30, y: 150, width: 340, height: 500 },
+      closeButton: { x: 340, y: 160, width: 30, height: 30 },
+      signInButton: { x: 130, y: 450, width: 140, height: 40 },
+      rewardItems: [] // 将在初始化时计算
+    }
+
+    // 计算奖励项位置（两行布局）
+    const rewards = this.signInManager ? this.signInManager.getSignInRewards() : []
+    const itemWidth = 70
+    const itemHeight = 80
+    const gap = 15
+    const startX = 50
+    const startY = 200
+    const cols = 4
+    const rows = 2
+
+    rewards.forEach((reward, index) => {
+      const col = index % cols
+      const row = Math.floor(index / cols)
+      this.signInModal.rewardItems.push({
+        x: startX + col * (itemWidth + gap),
+        y: startY + row * (itemHeight + gap),
+        width: itemWidth,
+        height: itemHeight,
+        reward: reward
+      })
+    })
     
     // 按钮状态
     this.buttonStates = {
@@ -58,14 +90,7 @@ export default class Menu {
       dailySignIn: { hovered: false, pressed: false },
       watchAd: { hovered: false, pressed: false }
     }
-    
-    // 每日签到数据
-    this.dailySignInData = {
-      consecutiveDays: 5,
-      isSignedToday: true,
-      rewards: [10, 15, 20, 25, 30, 35, 40] // 连续签到奖励
-    }
-    
+
     // 动画相关
     this.animations = {
       avatarRotation: 0,
@@ -130,6 +155,11 @@ export default class Menu {
 
     // 绘制观看广告按钮
     this.drawWatchAdButton(ctx)
+
+    // 绘制签到弹窗
+    if (this.signInModal.visible) {
+      this.drawSignInModal(ctx)
+    }
 
     // 绘制粒子效果
     this.renderParticles(ctx)
@@ -502,13 +532,16 @@ export default class Menu {
    */
   drawDailySignIn(ctx) {
     const { dailySignIn } = this.uiPositions
-    const data = this.dailySignInData
+    const status = this.signInManager ? this.signInManager.getSignInStatus() : null
+    const currentReward = this.signInManager ? this.signInManager.getCurrentReward() : null
+
+    if (!status || !currentReward) return
 
     // 背景框
-    ctx.fillStyle = data.isSignedToday ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)'
+    ctx.fillStyle = status.isSignedToday ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)'
     ctx.fillRect(dailySignIn.x, dailySignIn.y, dailySignIn.width, dailySignIn.height)
 
-    ctx.strokeStyle = data.isSignedToday ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 255, 255, 0.3)'
+    ctx.strokeStyle = status.isSignedToday ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 215, 0, 0.3)'
     ctx.lineWidth = 2
     ctx.strokeRect(dailySignIn.x, dailySignIn.y, dailySignIn.width, dailySignIn.height)
 
@@ -516,16 +549,129 @@ export default class Menu {
     ctx.fillStyle = '#ffffff'
     ctx.font = '14px Arial'
     ctx.textAlign = 'center'
-    ctx.fillText('每日签到', dailySignIn.x + dailySignIn.width / 2, dailySignIn.y + 20)
+    ctx.fillText('七日签到', dailySignIn.x + dailySignIn.width / 2, dailySignIn.y + 20)
 
     // 签到状态
     ctx.font = '12px Arial'
-    if (data.isSignedToday) {
+    if (status.isSignedToday) {
       ctx.fillStyle = '#00ff00'
-      ctx.fillText(`连续登录第${data.consecutiveDays}天✅`, dailySignIn.x + dailySignIn.width / 2, dailySignIn.y + 40)
+      ctx.fillText(`已签到 第${status.consecutiveDays}天✅`, dailySignIn.x + dailySignIn.width / 2, dailySignIn.y + 40)
     } else {
-      ctx.fillStyle = '#ffff00'
-      ctx.fillText(`连续登录第${data.consecutiveDays}天`, dailySignIn.x + dailySignIn.width / 2, dailySignIn.y + 40)
+      ctx.fillStyle = '#FFD700'
+      ctx.fillText(`签到+${currentReward.reward}积分`, dailySignIn.x + dailySignIn.width / 2, dailySignIn.y + 40)
+    }
+  }
+
+  /**
+   * 绘制七日签到弹窗
+   */
+  drawSignInModal(ctx) {
+    const modal = this.signInModal
+    const status = this.signInManager ? this.signInManager.getSignInStatus() : null
+
+    // 全屏遮罩层（防止穿透）
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+
+    // 弹窗背景
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.9)'
+    ctx.fillRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+
+    // 边框
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)'
+    ctx.lineWidth = 3
+    ctx.strokeRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+
+    // 标题
+    ctx.fillStyle = '#FFD700'
+    ctx.font = 'bold 20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('七日签到奖励', modal.position.x + modal.position.width / 2, modal.position.y + 30)
+
+    // 关闭按钮
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+    ctx.fillRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 20px Arial'
+    ctx.fillText('✕', modal.closeButton.x + modal.closeButton.width / 2, modal.closeButton.y + modal.closeButton.height / 2)
+
+    // 绘制七日奖励项
+    modal.rewardItems.forEach((item, index) => {
+      const dayIndex = status ? status.consecutiveDays % 7 : 0
+      const isCurrentDay = index === dayIndex
+      const isPastDay = status && index < dayIndex
+
+      // 背景
+      if (isPastDay) {
+        ctx.fillStyle = 'rgba(0, 255, 0, 0.2)'
+      } else if (isCurrentDay) {
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.3)'
+      } else {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
+      }
+      ctx.fillRect(item.x, item.y, item.width, item.height)
+
+      // 边框
+      ctx.strokeStyle = isPastDay ? 'rgba(0, 255, 0, 0.5)' :
+                        isCurrentDay ? 'rgba(255, 215, 0, 0.5)' :
+                        'rgba(255, 255, 255, 0.3)'
+      ctx.lineWidth = isCurrentDay ? 2 : 1
+      ctx.strokeRect(item.x, item.y, item.width, item.height)
+
+      // 天数
+      ctx.fillStyle = '#ffffff'
+      ctx.font = '12px Arial'
+      ctx.textAlign = 'center'
+      ctx.fillText(`第${item.reward.day}天`, item.x + item.width / 2, item.y + 15)
+
+      // 奖励图标
+      ctx.font = '20px Arial'
+      ctx.fillText(item.reward.icon, item.x + item.width / 2, item.y + 30)
+
+      // 奖励数值
+      ctx.font = 'bold 14px Arial'
+      ctx.fillStyle = isPastDay ? '#00ff00' : '#FFD700'
+      ctx.fillText(`${item.reward.reward}`, item.x + item.width / 2, item.y + 52)
+
+      // 奖励类型文字
+      ctx.font = '10px Arial'
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText('积分', item.x + item.width / 2, item.y + 70)
+    })
+
+    // 连续签到信息
+    if (status) {
+      ctx.fillStyle = '#ffffff'
+      ctx.font = '14px Arial'
+      ctx.fillText(`已连续签到 ${status.consecutiveDays} 天`, modal.position.x + modal.position.width / 2, modal.position.y + 380)
+      ctx.font = '12px Arial'
+      ctx.fillStyle = '#aaaaaa'
+      ctx.fillText(`累计签到 ${status.totalSignInDays} 天`, modal.position.x + modal.position.width / 2, modal.position.y + 400)
+    }
+
+    // 签到按钮
+    if (status && status.canSignIn) {
+      ctx.fillStyle = 'rgba(255, 215, 0, 0.3)'
+      ctx.fillRect(modal.signInButton.x, modal.signInButton.y, modal.signInButton.width, modal.signInButton.height)
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)'
+      ctx.lineWidth = 2
+      ctx.strokeRect(modal.signInButton.x, modal.signInButton.y, modal.signInButton.width, modal.signInButton.height)
+      ctx.fillStyle = '#FFD700'
+      ctx.font = 'bold 16px Arial'
+      ctx.fillText('立即签到', modal.signInButton.x + modal.signInButton.width / 2, modal.signInButton.y + modal.signInButton.height / 2)
+    } else if (status && status.isSignedToday) {
+      ctx.fillStyle = 'rgba(0, 255, 0, 0.2)'
+      ctx.fillRect(modal.signInButton.x, modal.signInButton.y, modal.signInButton.width, modal.signInButton.height)
+      ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)'
+      ctx.lineWidth = 2
+      ctx.strokeRect(modal.signInButton.x, modal.signInButton.y, modal.signInButton.width, modal.signInButton.height)
+      ctx.fillStyle = '#00ff00'
+      ctx.font = 'bold 16px Arial'
+      ctx.fillText('今日已签到', modal.signInButton.x + modal.signInButton.width / 2, modal.signInButton.y + modal.signInButton.height / 2)
     }
   }
 
@@ -611,6 +757,39 @@ export default class Menu {
    * 处理鼠标点击事件
    */
   handleClick(x, y) {
+    // 优先检查签到弹窗（如果弹窗显示，拦截所有点击）
+    if (this.signInModal.visible) {
+      // 关闭按钮
+      if (this.isPointInButton(x, y, this.signInModal.closeButton)) {
+        this.signInModal.visible = false
+        return 'closeSignInModal'
+      }
+      // 签到按钮
+      if (this.isPointInButton(x, y, this.signInModal.signInButton)) {
+        const result = this.signInManager.signIn()
+        if (result.success) {
+          this.spawnSignInParticles()
+          wx.showToast({
+            title: `签到成功！获得${result.reward}积分`,
+            icon: 'success'
+          })
+        } else {
+          wx.showToast({
+            title: result.message,
+            icon: 'none'
+          })
+        }
+        return 'signInAction'
+      }
+      // 点击弹窗外部关闭（遮罩层）
+      if (!this.isPointInButton(x, y, this.signInModal.position)) {
+        this.signInModal.visible = false
+        return 'closeSignInModal'
+      }
+      // 点击弹窗内部（但不点击按钮），不穿透到下一层
+      return 'modalClick'
+    }
+
     // 检查主要按钮点击
     if (this.isPointInButton(x, y, this.uiPositions.startGameButton)) {
       return 'startGame'
@@ -627,7 +806,7 @@ export default class Menu {
     if (this.isPointInButton(x, y, this.uiPositions.myStudioButton)) {
       return 'myStudio'
     }
-    
+
     // 检查导航按钮点击
     if (this.isPointInButton(x, y, this.uiPositions.navButtons.task)) {
       return 'task'
@@ -641,7 +820,7 @@ export default class Menu {
     if (this.isPointInButton(x, y, this.uiPositions.navButtons.ranking)) {
       return 'ranking'
     }
-    
+
     // 检查每日签到点击
     if (this.isPointInButton(x, y, this.uiPositions.dailySignIn)) {
       return this.handleDailySignIn()
@@ -667,23 +846,9 @@ export default class Menu {
    * 处理每日签到
    */
   handleDailySignIn() {
-    if (!this.dailySignInData.isSignedToday) {
-      this.dailySignInData.isSignedToday = true
-      this.dailySignInData.consecutiveDays++
-
-      // 发放奖励
-      const reward = this.dailySignInData.rewards[Math.min(this.dailySignInData.consecutiveDays - 1, 6)]
-      if (this.userInfo) {
-        this.userInfo.addScore(reward)
-      }
-
-      // 添加签到成功特效
-      this.spawnSignInParticles()
-
-      return 'dailySignInSuccess'
-    }
-
-    return 'dailySignInAlready'
+    // 打开签到弹窗
+    this.signInModal.visible = true
+    return 'dailySignInModal'
   }
 
   /**

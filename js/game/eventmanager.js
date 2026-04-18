@@ -95,6 +95,10 @@ export default class EventManager {
                 this.handleMenuAction(menuAction);
                 return;
             }
+            // 如果返回null但弹窗显示，也不继续处理（防止穿透）
+            if (this.menu.signInModal && this.menu.signInModal.visible) {
+                return;
+            }
 
             // 更新菜单悬停状态
             this.menu.handleMouseMove(x, y);
@@ -352,6 +356,12 @@ export default class EventManager {
             case 'collection':
                 // 进入图鉴界面
                 this.main.enterCollection();
+                break;
+            case 'dailySignInModal':
+            case 'closeSignInModal':
+            case 'signInAction':
+            case 'modalClick':
+                // 签到弹窗相关动作（已在Menu中处理）
                 break;
             case 'restart':
                 this.main.restartGame();

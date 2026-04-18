@@ -9,6 +9,7 @@ import UserInfo from './userinfo.js'
 import Menu from './menu.js'
 import AdManager from './game/admanager.js'
 import Collection from './game/collection.js'
+import SignInManager from './game/signinmanager.js'
 
 // 子游戏（模块化）
 import DominoChainGame from './game/subgames/domino_chain_game.js'
@@ -75,7 +76,8 @@ export default class Main {
     databus.mapHeight = canvas.height * 10
     this.bg = new Background(canvas.width, canvas.height, databus.mapHeight)
     this.userInfo = new UserInfo(databus)
-    this.menu = new Menu(databus, this.userInfo, this)
+    this.signInManager = new SignInManager(databus, this.userInfo)
+    this.menu = new Menu(databus, this.userInfo, this, this.signInManager)
     this.gameInfo = new GameInfo(databus, this.userInfo)
     camera = new Camera(canvas.width, canvas.height, databus.mapHeight)
 
@@ -101,7 +103,15 @@ export default class Main {
     this.initAudio()
     this.initAdManager()
     this.initCollection()
+    this.initSignInManager()
 
+  }
+
+  /**
+   * 初始化签到管理器
+   */
+  initSignInManager() {
+    this.signInManager = new SignInManager(databus, this.userInfo)
   }
 
   /**
