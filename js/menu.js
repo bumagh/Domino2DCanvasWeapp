@@ -4,7 +4,7 @@
  */
 
 export default class Menu {
-  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null, shopManager = null, settingsManager = null, announcementManager = null, inventoryManager = null) {
+  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null, shopManager = null, settingsManager = null, announcementManager = null, inventoryManager = null, guideManager = null) {
     this.databus = databus
     this.userInfo = userInfo
     this.main = main  // 添加 main 引用，用于访问广告管理器
@@ -14,6 +14,7 @@ export default class Menu {
     this.settingsManager = settingsManager  // 添加设置管理器
     this.announcementManager = announcementManager  // 添加公告管理器
     this.inventoryManager = inventoryManager  // 添加背包管理器
+    this.guideManager = guideManager  // 添加引导管理器
 
     // 刘海屏安全区域偏移量
     this.safeAreaTop = 50
@@ -239,6 +240,11 @@ export default class Menu {
     // 绘制背包弹窗
     if (this.inventoryModal.visible) {
       this.drawInventoryModal(ctx)
+    }
+
+    // 绘制新手引导
+    if (this.guideManager) {
+      this.guideManager.drawGuide(ctx, this.databus.canvasWidth, this.databus.canvasHeight)
     }
 
     // 绘制粒子效果

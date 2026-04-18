@@ -90,6 +90,17 @@ export default class EventManager {
 
         // 处理菜单触摸事件（优先级最高）
         if (this.menu && this.databus.gameState === 'menu') {
+            // 优先处理新手引导点击
+            if (this.main && this.main.guideManager && this.main.guideManager.isActive) {
+                const guideAction = this.main.guideManager.handleClick(x, y);
+                if (guideAction) {
+                    this.handleGuideAction(guideAction);
+                    return;
+                }
+                // 引导激活时拦截所有其他点击
+                return;
+            }
+
             const menuAction = this.menu.handleClick(x, y);
             if (menuAction) {
                 this.handleMenuAction(menuAction);
