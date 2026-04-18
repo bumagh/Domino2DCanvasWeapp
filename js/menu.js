@@ -20,6 +20,11 @@ export default class Menu {
 
     // 刘海屏安全区域偏移量
     this.safeAreaTop = 50
+
+    // 渲染性能优化
+    this.dirtyRects = [] // 脏矩形列表
+    this.lastRenderTime = 0
+    this.renderThrottle = 16 // 16ms = ~60fps
     
     // UI位置配置（已适配刘海屏）
     this.uiPositions = {
@@ -170,6 +175,17 @@ export default class Menu {
       animationStartTime: Date.now()
     }
 
+    // 粒子对象池
+    this.particlePool = []
+    this.maxPoolSize = 100
+
+    // 静态元素缓存
+    this.staticCache = {
+      background: null,
+      title: null
+    }
+    this.needsCacheUpdate = true
+
     // 初始化按钮动画状态
     const buttonKeys = ['startGame', 'quickChallenge', 'collection', 'creativeWorkshop', 'myStudio', 'inventory']
     buttonKeys.forEach((key, index) => {
@@ -238,7 +254,14 @@ export default class Menu {
    */
   render(ctx, canvasWidth, canvasHeight) {
     if (!ctx) return
-    
+
+    // 渲染节流（避免过度渲染）
+    const now = Date.now()
+    if (now - this.lastRenderTime < this.renderThrottle) {
+      return
+    }
+    this.lastRenderTime = now
+
     // 清空画布
     ctx.clearRect(0, 0, canvasWidth, canvasHeight)
     
@@ -324,6 +347,12 @@ export default class Menu {
    * 绘制背景
    */
   drawBackground(ctx, width, height) {
+    // 使用缓存的背景（如果可用）
+    if (this.staticCache.background && !this.needsCacheUpdate) {
+      ctx.drawImage(this.staticCache.background, 0, 0)
+      return
+    }
+
     // 渐变背景
     const gradient = ctx.createLinearGradient(0, 0, 0, height)
     gradient.addColorStop(0, '#1a1a2e')
@@ -357,6 +386,19 @@ export default class Menu {
       ctx.beginPath()
       ctx.arc(x, y, size, 0, Math.PI * 2)
       ctx.fill()
+    }
+
+    // 如果需要更新缓存，创建离屏canvas缓存背景
+    if (this.needsCacheUpdate && typeof OffscreenCanvas !== 'undefined') {
+      try {
+        const offscreen = new OffscreenCanvas(width, height)
+        const offCtx = offscreen.getContext('2d')
+        offCtx.drawImage(ctx.canvas, 0, 0)
+        this.staticCache.background = offscreen
+        this.needsCacheUpdate = false
+      } catch (e) {
+        // OffscreenCanvas不支持，跳过缓存
+      }
     }
   }
 
