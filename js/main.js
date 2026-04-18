@@ -18,6 +18,7 @@ import InventoryManager from './game/inventorymanager.js'
 import GuideManager from './game/guidemanager.js'
 import TutorialManager from './game/tutorialmanager.js'
 import FeedbackManager from './game/feedbackmanager.js'
+import ResourceManager from './game/resourcemanager.js'
 
 // 子游戏（模块化）
 import DominoChainGame from './game/subgames/domino_chain_game.js'
@@ -61,6 +62,9 @@ export default class Main {
 
   // 反馈管理器
   feedbackManager = null  // 反馈管理器
+
+  // 资源管理器
+  resourceManager = null  // 资源管理器
   userInfo = null  // 用户信息实例
   menu = null  // 菜单实例
   adManager = null  // 广告管理器
@@ -118,6 +122,7 @@ export default class Main {
     this.guideManager = new GuideManager(databus, this)
     this.tutorialManager = new TutorialManager(databus)
     this.feedbackManager = new FeedbackManager(databus, this.settingsManager)
+    this.resourceManager = new ResourceManager()
     this.menu = new Menu(databus, this.userInfo, this, this.signInManager, this.taskManager, this.shopManager, this.settingsManager, this.announcementManager, this.inventoryManager, this.guideManager, this.tutorialManager, this.feedbackManager)
     this.gameInfo = new GameInfo(databus, this.userInfo)
     camera = new Camera(canvas.width, canvas.height, databus.mapHeight)
@@ -127,6 +132,9 @@ export default class Main {
     this.canvas = canvas
 
     // 初始化新手引导
+
+    // 初始化资源预加载
+    this.initResourcePreload()
 
     const that = this;
     // 初始化事件管理器
@@ -161,6 +169,37 @@ export default class Main {
    */
   initCollection() {
     this.collection = new Collection(databus, this.userInfo)
+  }
+
+  /**
+   * 初始化资源预加载
+   */
+  initResourcePreload() {
+    // 定义需要预加载的资源列表
+    const resources = [
+      // 音频资源
+      { type: 'sound', key: 'bgm', url: 'audio/ballbgm.mp3', loop: true },
+      { type: 'sound', key: 'collision', url: 'audio/collision.mp3', loop: false },
+      // 可以添加更多图片、数据等资源
+    ]
+
+    // 从本地存储加载缓存
+    this.resourceManager.loadCacheFromStorage()
+
+    // 预加载资源
+    this.resourceManager.preload(
+      resources,
+      (progress, loaded, total) => {
+        // 进度回调
+        console.log(`资源加载进度: ${(progress * 100).toFixed(1)}% (${loaded}/${total})`)
+      },
+      () => {
+        // 完成回调
+        console.log('资源预加载完成')
+        // 保存缓存到本地存储
+        this.resourceManager.saveCacheToStorage()
+      }
+    )
   }
 
   /**
