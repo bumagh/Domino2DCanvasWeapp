@@ -16,6 +16,7 @@ import SettingsManager from './game/settingsmanager.js'
 import AnnouncementManager from './game/announcementmanager.js'
 import InventoryManager from './game/inventorymanager.js'
 import GuideManager from './game/guidemanager.js'
+import TutorialManager from './game/tutorialmanager.js'
 
 // 子游戏（模块化）
 import DominoChainGame from './game/subgames/domino_chain_game.js'
@@ -53,6 +54,9 @@ export default class Main {
 
   // 引导管理器
   guideManager = null  // 引导管理器
+
+  // 教程管理器
+  tutorialManager = null  // 教程管理器
   userInfo = null  // 用户信息实例
   menu = null  // 菜单实例
   adManager = null  // 广告管理器
@@ -108,7 +112,8 @@ export default class Main {
     this.announcementManager = new AnnouncementManager(databus)
     this.inventoryManager = new InventoryManager(databus, this.userInfo, this.shopManager)
     this.guideManager = new GuideManager(databus, this)
-    this.menu = new Menu(databus, this.userInfo, this, this.signInManager, this.taskManager, this.shopManager, this.settingsManager, this.announcementManager, this.inventoryManager, this.guideManager)
+    this.tutorialManager = new TutorialManager(databus)
+    this.menu = new Menu(databus, this.userInfo, this, this.signInManager, this.taskManager, this.shopManager, this.settingsManager, this.announcementManager, this.inventoryManager, this.guideManager, this.tutorialManager)
     this.gameInfo = new GameInfo(databus, this.userInfo)
     camera = new Camera(canvas.width, canvas.height, databus.mapHeight)
 

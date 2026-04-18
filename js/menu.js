@@ -4,7 +4,7 @@
  */
 
 export default class Menu {
-  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null, shopManager = null, settingsManager = null, announcementManager = null, inventoryManager = null, guideManager = null) {
+  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null, shopManager = null, settingsManager = null, announcementManager = null, inventoryManager = null, guideManager = null, tutorialManager = null) {
     this.databus = databus
     this.userInfo = userInfo
     this.main = main  // 添加 main 引用，用于访问广告管理器
@@ -15,6 +15,7 @@ export default class Menu {
     this.announcementManager = announcementManager  // 添加公告管理器
     this.inventoryManager = inventoryManager  // 添加背包管理器
     this.guideManager = guideManager  // 添加引导管理器
+    this.tutorialManager = tutorialManager  // 添加教程管理器
 
     // 刘海屏安全区域偏移量
     this.safeAreaTop = 50
@@ -135,6 +136,14 @@ export default class Menu {
       inventoryItems: [] // 将在渲染时动态计算
     }
 
+    // 教程弹窗配置
+    this.tutorialModal = {
+      visible: false,
+      position: { x: 30, y: 80, width: 340, height: 580 },
+      closeButton: { x: 340, y: 90, width: 30, height: 30 },
+      tutorialList: [] // 将在渲染时动态计算
+    }
+
     // 按钮状态
     this.buttonStates = {
       startGame: { hovered: false, pressed: false },
@@ -147,7 +156,8 @@ export default class Menu {
       friends: { hovered: false, pressed: false },
       ranking: { hovered: false, pressed: false },
       dailySignIn: { hovered: false, pressed: false },
-      inventory: { hovered: false, pressed: false }
+      inventory: { hovered: false, pressed: false },
+      tutorial: { hovered: false, pressed: false }
     }
 
     // 动画相关
@@ -212,6 +222,9 @@ export default class Menu {
     // 绘制每日签到区域
     this.drawDailySignIn(ctx)
 
+    // 绘制教程按钮
+    this.drawTutorialButton(ctx)
+
     // 绘制签到弹窗
     if (this.signInModal.visible) {
       this.drawSignInModal(ctx)
@@ -245,6 +258,13 @@ export default class Menu {
     // 绘制新手引导
     if (this.guideManager) {
       this.guideManager.drawGuide(ctx, this.databus.canvasWidth, this.databus.canvasHeight)
+    }
+
+    // 绘制教程弹窗
+    if (this.tutorialModal.visible) {
+      if (this.tutorialManager) {
+        this.tutorialManager.drawTutorialModal(ctx, this.databus.canvasWidth, this.databus.canvasHeight)
+      }
     }
 
     // 绘制粒子效果
@@ -1460,6 +1480,26 @@ export default class Menu {
   }
 
   /**
+   * 绘制教程按钮
+   */
+  drawTutorialButton(ctx) {
+    const tutorialButton = { x: 200, y: 700, width: 100, height: 40 }
+    const state = this.buttonStates.tutorial || { hovered: false }
+
+    ctx.fillStyle = state.hovered ? 'rgba(100, 200, 255, 0.3)' : 'rgba(100, 200, 255, 0.2)'
+    ctx.fillRect(tutorialButton.x, tutorialButton.y, tutorialButton.width, tutorialButton.height)
+    ctx.strokeStyle = 'rgba(100, 200, 255, 0.5)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(tutorialButton.x, tutorialButton.y, tutorialButton.width, tutorialButton.height)
+
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '14px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('📚 教程', tutorialButton.x + tutorialButton.width / 2, tutorialButton.y + tutorialButton.height / 2)
+  }
+
+  /**
    * 处理鼠标移动事件
    */
   handleMouseMove(x, y) {
@@ -1502,6 +1542,11 @@ export default class Menu {
     // 检查每日签到
     if (this.isPointInButton(x, y, this.uiPositions.dailySignIn)) {
       this.buttonStates.dailySignIn.hovered = true
+    }
+
+    // 检查教程按钮
+    if (this.isPointInButton(x, y, { x: 200, y: 700, width: 100, height: 40 })) {
+      this.buttonStates.tutorial.hovered = true
     }
   }
 
@@ -1867,6 +1912,23 @@ export default class Menu {
       return 'modalClick'
     }
 
+    // 优先检查教程弹窗（如果弹窗显示，拦截所有点击）
+    if (this.tutorialModal.visible) {
+      if (this.tutorialManager) {
+        const tutorialAction = this.tutorialManager.handleClick(x, y)
+        if (tutorialAction) {
+          return tutorialAction
+        }
+      }
+      // 点击弹窗外部关闭（遮罩层）
+      if (!this.isPointInButton(x, y, this.tutorialModal.position)) {
+        this.tutorialModal.visible = false
+        return 'closeTutorialModal'
+      }
+      // 点击弹窗内部（但不点击按钮），不穿透到下一层
+      return 'modalClick'
+    }
+
     // 检查主要按钮点击
     if (this.isPointInButton(x, y, this.uiPositions.startGameButton)) {
       return 'startGame'
@@ -1922,6 +1984,13 @@ export default class Menu {
       // 打开公告弹窗
       this.announcementModal.visible = true
       return 'announcementModal'
+    }
+
+    // 检查教程按钮点击（临时添加在主菜单下方）
+    if (this.isPointInButton(x, y, { x: 200, y: 700, width: 100, height: 40 })) {
+      // 打开教程弹窗
+      this.tutorialModal.visible = true
+      return 'tutorialModal'
     }
 
     return null
