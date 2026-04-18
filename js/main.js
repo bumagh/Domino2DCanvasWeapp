@@ -20,6 +20,7 @@ import TutorialManager from './game/tutorialmanager.js'
 import FeedbackManager from './game/feedbackmanager.js'
 import ResourceManager from './game/resourcemanager.js'
 import MemoryManager from './game/memorymanager.js'
+import OfflineCache from './game/offlinecache.js'
 
 // 子游戏（模块化）
 import DominoChainGame from './game/subgames/domino_chain_game.js'
@@ -69,6 +70,9 @@ export default class Main {
 
   // 内存管理器
   memoryManager = null  // 内存管理器
+
+  // 离线缓存
+  offlineCache = null  // 离线缓存
   userInfo = null  // 用户信息实例
   menu = null  // 菜单实例
   adManager = null  // 广告管理器
@@ -128,6 +132,8 @@ export default class Main {
     this.feedbackManager = new FeedbackManager(databus, this.settingsManager)
     this.resourceManager = new ResourceManager()
     this.memoryManager = new MemoryManager()
+    this.offlineCache = new OfflineCache()
+    this.offlineCache.init()
     this.menu = new Menu(databus, this.userInfo, this, this.signInManager, this.taskManager, this.shopManager, this.settingsManager, this.announcementManager, this.inventoryManager, this.guideManager, this.tutorialManager, this.feedbackManager)
     this.gameInfo = new GameInfo(databus, this.userInfo)
     camera = new Camera(canvas.width, canvas.height, databus.mapHeight)
