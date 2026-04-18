@@ -24,6 +24,7 @@ import OfflineCache from './game/offlinecache.js'
 import LevelManager from './game/levelmanager.js'
 import GameModeManager from './game/gamemodemanager.js'
 import DifficultyManager from './game/difficultymanager.js'
+import AchievementManager from './game/achievementmanager.js'
 
 // 子游戏（模块化）
 import DominoChainGame from './game/subgames/domino_chain_game.js'
@@ -85,6 +86,9 @@ export default class Main {
 
   // 难度管理器
   difficultyManager = null  // 难度管理器
+
+  // 成就管理器
+  achievementManager = null  // 成就管理器
   userInfo = null  // 用户信息实例
   menu = null  // 菜单实例
   adManager = null  // 广告管理器
@@ -150,6 +154,7 @@ export default class Main {
     this.gameModeManager = new GameModeManager(databus)
     this.gameModeManager.checkUnlocks(this.levelManager)
     this.difficultyManager = new DifficultyManager(databus)
+    this.achievementManager = new AchievementManager(databus)
     this.menu = new Menu(databus, this.userInfo, this, this.signInManager, this.taskManager, this.shopManager, this.settingsManager, this.announcementManager, this.inventoryManager, this.guideManager, this.tutorialManager, this.feedbackManager)
     this.gameInfo = new GameInfo(databus, this.userInfo)
     camera = new Camera(canvas.width, canvas.height, databus.mapHeight)
