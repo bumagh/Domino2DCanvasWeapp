@@ -26,15 +26,57 @@ export default class DominoLevelSelect {
         this.previewModal = {
             visible: false,
             level: null,
+            chapter: null,
             position: { x: 50, y: 100, width: 300, height: 400 },
             closeButton: { x: 320, y: 110, width: 30, height: 30 }
         }
+
+        // 章节标签布局缓存
+        this.chapterLayout = this.calculateChapterLayout()
 
         // 加载进度
         loadProgress()
 
         // 加载解锁配置
         this.unlockConfig = this.loadUnlockConfig()
+    }
+
+    // 计算章节标签布局
+    calculateChapterLayout() {
+        const layout = []
+        const ctx = this.ctx
+        const maxWidth = this.canvas.width - 20
+        const margin = 8
+        const height = 35
+
+        let currentRow = 0
+        let currentX = 10
+        let currentY = 70
+
+        Chapters.forEach((chapter, index) => {
+            ctx.font = 'bold 12px Arial'
+            const textWidth = ctx.measureText(chapter.name).width + 20
+
+            // 检查是否需要换行
+            if (currentX + textWidth > maxWidth && currentX > 10) {
+                currentRow++
+                currentX = 10
+                currentY += height + margin
+            }
+
+            layout.push({
+                index,
+                x: currentX,
+                y: currentY,
+                width: textWidth,
+                height,
+                row: currentRow
+            })
+
+            currentX += textWidth + margin
+        })
+
+        return layout
     }
 
     // 加载解锁配置
@@ -106,6 +148,14 @@ export default class DominoLevelSelect {
             if (chapter.unlocked) {
                 this.currentChapter = chapter.id
                 this.scrollY = 0
+            } else {
+                // 未解锁章节显示预览
+                const unlockConfig = this.getLevelUnlockConfig(chapter.id)
+                if (unlockConfig.previewEnabled) {
+                    this.previewModal.chapter = chapter
+                    this.previewModal.level = null
+                    this.previewModal.visible = true
+                }
             }
             return
         }
@@ -149,28 +199,20 @@ export default class DominoLevelSelect {
     }
     
     checkChapterTabs(x, y) {
-        if (y < 70 || y > 130) return -1
-
-        const tabWidth = (this.canvas.width - 20) / 5
-        const tabHeight = 25
-        const tabMargin = 5
-
-        const cols = 5
-        const row = Math.floor((y - 70) / (tabHeight + tabMargin))
-        const col = Math.floor(x / (tabWidth + tabMargin))
-
-        if (row < 0 || row >= 2) return -1
-        if (col < 0 || col >= cols) return -1
-
-        const index = row * cols + col
-        return index >= 0 && index < Chapters.length ? index : -1
+        for (const item of this.chapterLayout) {
+            if (x >= item.x && x <= item.x + item.width &&
+                y >= item.y && y <= item.y + item.height) {
+                return item.index
+            }
+        }
+        return -1
     }
     
     checkLevelClick(x, y) {
         const chapter = Chapters.find(c => c.id === this.currentChapter)
         if (!chapter) return -1
 
-        const startY = 145 - this.scrollY
+        const startY = (this.chapterTotalHeight || 145) - this.scrollY
         const cardHeight = 100
         const cardMargin = 15
         const cardWidth = (this.canvas.width - 40 - cardMargin) / 2
@@ -255,20 +297,33 @@ export default class DominoLevelSelect {
     }
 
     unlockLevel() {
-        if (this.previewModal.level) {
+        if (this.previewModal.chapter) {
+            // 解锁章节
+            const chapter = this.previewModal.chapter
+            chapter.unlocked = true
+            // 解锁章节内的所有关卡
+            chapter.levels.forEach(levelId => {
+                const level = Levels.find(l => l.id === levelId)
+                if (level) level.unlocked = true
+            })
+            this.previewModal.visible = false
+            this.previewModal.chapter = null
+        } else if (this.previewModal.level) {
+            // 解锁关卡
             this.previewModal.level.unlocked = true
             this.previewModal.visible = false
             this.previewModal.level = null
-            // 保存进度
-            try {
-                const progress = {
-                    levels: Levels.map(l => ({ id: l.id, stars: l.stars, unlocked: l.unlocked })),
-                    chapters: Chapters.map(c => ({ id: c.id, unlocked: c.unlocked }))
-                }
-                wx.setStorageSync('domino_progress', JSON.stringify(progress))
-            } catch (e) {
-                console.error('保存进度失败:', e)
+        }
+
+        // 保存进度
+        try {
+            const progress = {
+                levels: Levels.map(l => ({ id: l.id, stars: l.stars, unlocked: l.unlocked })),
+                chapters: Chapters.map(c => ({ id: c.id, unlocked: c.unlocked }))
             }
+            wx.setStorageSync('domino_progress', JSON.stringify(progress))
+        } catch (e) {
+            console.error('保存进度失败:', e)
         }
     }
     
@@ -312,34 +367,42 @@ export default class DominoLevelSelect {
     
     drawChapterTabs() {
         const ctx = this.ctx
-        const canvas = this.canvas
 
-        const tabWidth = (this.canvas.width - 20) / 5
-        const tabHeight = 25
-        const tabMargin = 5
-        const cols = 5
-
-        Chapters.forEach((chapter, index) => {
-            const row = Math.floor(index / cols)
-            const col = index % cols
-            const x = 10 + col * (tabWidth + tabMargin)
-            const y = 70 + row * (tabHeight + tabMargin)
-
+        this.chapterLayout.forEach((item) => {
+            const chapter = Chapters[item.index]
             const isSelected = chapter.id === this.currentChapter
             const isLocked = !chapter.unlocked
 
             // 标签背景
             ctx.fillStyle = isSelected ? 'rgba(76, 175, 80, 0.8)' :
                            isLocked ? 'rgba(100, 100, 100, 0.5)' : 'rgba(255, 255, 255, 0.1)'
-            ctx.fillRect(x, y, tabWidth, tabHeight)
+            ctx.fillRect(item.x, item.y, item.width, item.height)
+
+            // 标签边框
+            ctx.strokeStyle = isSelected ? 'rgba(76, 175, 80, 1)' :
+                            isLocked ? 'rgba(100, 100, 100, 0.3)' : 'rgba(255, 255, 255, 0.2)'
+            ctx.lineWidth = 1
+            ctx.strokeRect(item.x, item.y, item.width, item.height)
 
             // 标签文字
-            ctx.fillStyle = isLocked ? '#666' : '#fff'
-            ctx.font = isSelected ? 'bold 12px Arial' : '11px Arial'
+            ctx.fillStyle = isLocked ? '#888' : '#fff'
+            ctx.font = isSelected ? 'bold 13px Arial' : '12px Arial'
             ctx.textAlign = 'center'
             ctx.textBaseline = 'middle'
-            ctx.fillText(isLocked ? '🔒' : chapter.name, x + tabWidth / 2, y + tabHeight / 2)
+            ctx.fillText(chapter.name, item.x + item.width / 2, item.y + item.height / 2)
+
+            // 锁定图标（如果锁定）
+            if (isLocked) {
+                ctx.fillStyle = '#666'
+                ctx.font = '10px Arial'
+                ctx.fillText('🔒', item.x + item.width - 12, item.y + 12)
+            }
         })
+
+        // 计算章节标签总高度
+        const maxRow = Math.max(...this.chapterLayout.map(item => item.row))
+        const chapterTotalHeight = (maxRow + 1) * 43 + 70
+        this.chapterTotalHeight = chapterTotalHeight
     }
     
     drawLevelList() {
@@ -349,7 +412,7 @@ export default class DominoLevelSelect {
         const chapter = Chapters.find(c => c.id === this.currentChapter)
         if (!chapter) return
 
-        const startY = 145
+        const startY = this.chapterTotalHeight || 145
         const cardHeight = 100
         const cardMargin = 15
         const cardWidth = (canvas.width - 40 - cardMargin) / 2
@@ -445,8 +508,7 @@ export default class DominoLevelSelect {
     drawPreviewModal() {
         const ctx = this.ctx
         const modal = this.previewModal.position
-        const level = this.previewModal.level
-        const unlockConfig = this.getLevelUnlockConfig(level.id)
+        const isChapter = !!this.previewModal.chapter
 
         // 遮罩层
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
@@ -471,6 +533,78 @@ export default class DominoLevelSelect {
         ctx.textBaseline = 'middle'
         ctx.fillText('✕', this.previewModal.closeButton.x + this.previewModal.closeButton.width / 2,
                      this.previewModal.closeButton.y + this.previewModal.closeButton.height / 2)
+
+        if (isChapter) {
+            this.drawChapterPreview(ctx, modal)
+        } else {
+            this.drawLevelPreview(ctx, modal)
+        }
+    }
+
+    drawChapterPreview(ctx, modal) {
+        const chapter = this.previewModal.chapter
+        const unlockConfig = this.getLevelUnlockConfig(chapter.id)
+
+        // 章节标题
+        ctx.fillStyle = '#FFD700'
+        ctx.font = 'bold 20px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillText(`${chapter.name}`, modal.x + modal.width / 2, modal.y + 40)
+
+        // 章节描述
+        if (unlockConfig.description) {
+            ctx.fillStyle = '#aaa'
+            ctx.font = '14px Arial'
+            ctx.fillText(unlockConfig.description, modal.x + modal.width / 2, modal.y + 65)
+        }
+
+        // 关卡列表
+        ctx.fillStyle = '#fff'
+        ctx.font = '14px Arial'
+        ctx.fillText('包含关卡:', modal.x + 20, modal.y + 95)
+
+        const levelY = 115
+        chapter.levels.forEach((levelId, index) => {
+            const level = getLevel(levelId)
+            if (!level) return
+
+            const y = levelY + index * 25
+            ctx.fillStyle = level.unlocked ? '#4ecdc4' : '#888'
+            ctx.font = '12px Arial'
+            ctx.textAlign = 'left'
+            ctx.fillText(`关卡 ${level.id}: ${level.name} ${level.unlocked ? '✓' : '🔒'}`, modal.x + 20, y)
+        })
+
+        // 解锁选项
+        const currentScore = this.userInfo?.score || 0
+
+        // 视频解锁按钮
+        if (unlockConfig.videoReward) {
+            ctx.fillStyle = '#FF5722'
+            ctx.fillRect(modal.x + 20, modal.y + 280, 260, 40)
+            ctx.fillStyle = '#fff'
+            ctx.font = 'bold 16px Arial'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText('📺 看广告解锁', modal.x + 150, modal.y + 300)
+        }
+
+        // 积分解锁按钮
+        if (unlockConfig.scoreCost > 0) {
+            const canAfford = currentScore >= unlockConfig.scoreCost
+            ctx.fillStyle = canAfford ? '#4CAF50' : '#666'
+            ctx.fillRect(modal.x + 20, modal.y + 330, 260, 40)
+            ctx.fillStyle = '#fff'
+            ctx.font = 'bold 16px Arial'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText(`💎 ${unlockConfig.scoreCost}积分解锁 (当前:${currentScore})`, modal.x + 150, modal.y + 350)
+        }
+    }
+
+    drawLevelPreview(ctx, modal) {
+        const level = this.previewModal.level
+        const unlockConfig = this.getLevelUnlockConfig(level.id)
 
         // 关卡标题
         ctx.fillStyle = '#FFD700'
