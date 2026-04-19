@@ -17,8 +17,8 @@ export default class GuideManager {
     this.guideSteps = [
       {
         id: 'welcome',
-        title: '欢迎来到多米诺滚珠大赛',
-        content: '点击屏幕开始游戏，体验骨牌滚珠的乐趣！',
+        title: '欢迎来到多米诺骨牌',
+        content: '点击屏幕开始游戏，体验骨牌连锁反应的乐趣！',
         target: null,
         position: { x: 200, y: 400 },
         highlight: null

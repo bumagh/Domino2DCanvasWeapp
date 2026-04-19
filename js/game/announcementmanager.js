@@ -16,7 +16,7 @@ export default class AnnouncementManager {
       system: [
         {
           id: 'sys_001',
-          title: '欢迎来到多米诺滚珠大赛',
+          title: '欢迎来到多米诺骨牌',
           content: '感谢您下载游戏！请查看游戏规则和操作指南。',
           type: 'info',
           priority: 'high',

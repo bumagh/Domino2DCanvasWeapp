@@ -125,7 +125,7 @@ export default class Main {
     // 设置默认分享内容
     wx.onShareAppMessage(() => {
       return {
-        title: '一起来玩多米诺滚珠大赛！'
+        title: '一起来玩多米诺骨牌！'
       }
     })
     // 设置canvas尺寸
