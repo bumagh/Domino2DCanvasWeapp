@@ -149,10 +149,20 @@ export default class DominoLevelSelect {
     }
     
     checkChapterTabs(x, y) {
-        if (y < 70 || y > 110) return -1
-        
-        const tabWidth = this.canvas.width / Chapters.length
-        const index = Math.floor(x / tabWidth)
+        if (y < 70 || y > 130) return -1
+
+        const tabWidth = (this.canvas.width - 20) / 5
+        const tabHeight = 25
+        const tabMargin = 5
+
+        const cols = 5
+        const row = Math.floor((y - 70) / (tabHeight + tabMargin))
+        const col = Math.floor(x / (tabWidth + tabMargin))
+
+        if (row < 0 || row >= 2) return -1
+        if (col < 0 || col >= cols) return -1
+
+        const index = row * cols + col
         return index >= 0 && index < Chapters.length ? index : -1
     }
     
@@ -160,7 +170,7 @@ export default class DominoLevelSelect {
         const chapter = Chapters.find(c => c.id === this.currentChapter)
         if (!chapter) return -1
 
-        const startY = 130 - this.scrollY
+        const startY = 145 - this.scrollY
         const cardHeight = 100
         const cardMargin = 15
         const cardWidth = (this.canvas.width - 40 - cardMargin) / 2
@@ -303,23 +313,32 @@ export default class DominoLevelSelect {
     drawChapterTabs() {
         const ctx = this.ctx
         const canvas = this.canvas
-        const tabWidth = canvas.width / Chapters.length
-        
+
+        const tabWidth = (this.canvas.width - 20) / 5
+        const tabHeight = 25
+        const tabMargin = 5
+        const cols = 5
+
         Chapters.forEach((chapter, index) => {
-            const x = index * tabWidth
+            const row = Math.floor(index / cols)
+            const col = index % cols
+            const x = 10 + col * (tabWidth + tabMargin)
+            const y = 70 + row * (tabHeight + tabMargin)
+
             const isSelected = chapter.id === this.currentChapter
             const isLocked = !chapter.unlocked
-            
+
             // 标签背景
-            ctx.fillStyle = isSelected ? 'rgba(76, 175, 80, 0.8)' : 
+            ctx.fillStyle = isSelected ? 'rgba(76, 175, 80, 0.8)' :
                            isLocked ? 'rgba(100, 100, 100, 0.5)' : 'rgba(255, 255, 255, 0.1)'
-            ctx.fillRect(x + 2, 70, tabWidth - 4, 40)
-            
+            ctx.fillRect(x, y, tabWidth, tabHeight)
+
             // 标签文字
             ctx.fillStyle = isLocked ? '#666' : '#fff'
-            ctx.font = isSelected ? 'bold 14px Arial' : '12px Arial'
+            ctx.font = isSelected ? 'bold 12px Arial' : '11px Arial'
             ctx.textAlign = 'center'
-            ctx.fillText(isLocked ? '🔒' : chapter.name, x + tabWidth / 2, 95)
+            ctx.textBaseline = 'middle'
+            ctx.fillText(isLocked ? '🔒' : chapter.name, x + tabWidth / 2, y + tabHeight / 2)
         })
     }
     
@@ -330,7 +349,7 @@ export default class DominoLevelSelect {
         const chapter = Chapters.find(c => c.id === this.currentChapter)
         if (!chapter) return
 
-        const startY = 130
+        const startY = 145
         const cardHeight = 100
         const cardMargin = 15
         const cardWidth = (canvas.width - 40 - cardMargin) / 2
