@@ -1,0 +1,91 @@
+{
+  "unlockConfig": {
+    "default": {
+      "scoreCost": 100,
+      "videoReward": true,
+      "previewEnabled": true
+    },
+    "chapters": {
+      "1": {
+        "scoreCost": 0,
+        "videoReward": false,
+        "previewEnabled": false,
+        "description": "入门教程无需解锁"
+      },
+      "2": {
+        "scoreCost": 50,
+        "videoReward": true,
+        "previewEnabled": true,
+        "description": "障碍挑战"
+      },
+      "3": {
+        "scoreCost": 100,
+        "videoReward": true,
+        "previewEnabled": true,
+        "description": "高级技巧"
+      },
+      "4": {
+        "scoreCost": 150,
+        "videoReward": true,
+        "previewEnabled": true,
+        "description": "大师挑战"
+      },
+      "5": {
+        "scoreCost": 200,
+        "videoReward": true,
+        "previewEnabled": true,
+        "description": "新障碍物"
+      },
+      "6": {
+        "scoreCost": 250,
+        "videoReward": true,
+        "previewEnabled": true,
+        "description": "限时挑战"
+      },
+      "7": {
+        "scoreCost": 300,
+        "videoReward": true,
+        "previewEnabled": true,
+        "description": "限量挑战"
+      },
+      "8": {
+        "scoreCost": 350,
+        "videoReward": true,
+        "previewEnabled": true,
+        "description": "目标模式"
+      },
+      "9": {
+        "scoreCost": 400,
+        "videoReward": true,
+        "previewEnabled": true,
+        "description": "组合挑战"
+      },
+      "10": {
+        "scoreCost": 500,
+        "videoReward": true,
+        "previewEnabled": true,
+        "description": "终极挑战"
+      }
+    },
+    "levels": {
+      "1": {
+        "scoreCost": 0,
+        "videoReward": false
+      },
+      "2": {
+        "scoreCost": 0,
+        "videoReward": false
+      },
+      "3": {
+        "scoreCost": 0,
+        "videoReward": false
+      }
+    }
+  },
+  "previewSettings": {
+    "showObstacles": true,
+    "showPowerUps": true,
+    "showTargets": true,
+    "showHints": true
+  }
+}
