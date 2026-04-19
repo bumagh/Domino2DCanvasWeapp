@@ -25,6 +25,8 @@ import LevelManager from './game/levelmanager.js'
 import GameModeManager from './game/gamemodemanager.js'
 import DifficultyManager from './game/difficultymanager.js'
 import AchievementManager from './game/achievementmanager.js'
+import CreativeWorkshopManager from './game/creativeworkshopmanager.js'
+import StudioManager from './game/studiomanager.js'
 
 // 子游戏（模块化）
 import DominoChainGame from './game/subgames/domino_chain_game.js'
@@ -155,7 +157,9 @@ export default class Main {
     this.gameModeManager.checkUnlocks(this.levelManager)
     this.difficultyManager = new DifficultyManager(databus)
     this.achievementManager = new AchievementManager(databus)
-    this.menu = new Menu(databus, this.userInfo, this, this.signInManager, this.taskManager, this.shopManager, this.settingsManager, this.announcementManager, this.inventoryManager, this.guideManager, this.tutorialManager, this.feedbackManager)
+    this.creativeWorkshopManager = new CreativeWorkshopManager(databus)
+    this.studioManager = new StudioManager(databus)
+    this.menu = new Menu(databus, this.userInfo, this, this.signInManager, this.taskManager, this.shopManager, this.settingsManager, this.announcementManager, this.inventoryManager, this.guideManager, this.tutorialManager, this.feedbackManager, this.creativeWorkshopManager, this.studioManager)
     this.gameInfo = new GameInfo(databus, this.userInfo)
     camera = new Camera(canvas.width, canvas.height, databus.mapHeight)
 

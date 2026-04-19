@@ -1,0 +1,160 @@
+{
+  "menu": {
+    "buttons": [
+      {
+        "id": "startGame",
+        "name": "开始游戏",
+        "x": 50,
+        "y": 400,
+        "width": 140,
+        "height": 50
+      },
+      {
+        "id": "quickChallenge",
+        "name": "快速挑战",
+        "x": 210,
+        "y": 400,
+        "width": 140,
+        "height": 50
+      },
+      {
+        "id": "collection",
+        "name": "图鉴",
+        "x": 50,
+        "y": 480,
+        "width": 140,
+        "height": 50
+      },
+      {
+        "id": "creativeWorkshop",
+        "name": "创意工坊",
+        "x": 210,
+        "y": 480,
+        "width": 140,
+        "height": 50
+      },
+      {
+        "id": "myStudio",
+        "name": "我的工作室",
+        "x": 50,
+        "y": 560,
+        "width": 140,
+        "height": 50
+      },
+      {
+        "id": "inventory",
+        "name": "背包",
+        "x": 210,
+        "y": 560,
+        "width": 140,
+        "height": 50
+      },
+      {
+        "id": "tutorial",
+        "name": "教程",
+        "x": 153,
+        "y": 348,
+        "width": 100,
+        "height": 40
+      }
+    ]
+  },
+  "game": {
+    "canvasWidth": 400,
+    "canvasHeight": 600,
+    "buttons": [
+      {
+        "id": "pause",
+        "name": "暂停",
+        "x": 350,
+        "y": 20,
+        "width": 40,
+        "height": 40
+      },
+      {
+        "id": "hint",
+        "name": "提示",
+        "x": 10,
+        "y": 550,
+        "width": 80,
+        "height": 40
+      },
+      {
+        "id": "restart",
+        "name": "重置",
+        "x": 310,
+        "y": 550,
+        "width": 80,
+        "height": 40
+      }
+    ]
+  },
+  "settings": {
+    "canvasWidth": 400,
+    "canvasHeight": 600,
+    "buttons": [
+      {
+        "id": "sound",
+        "name": "音效",
+        "x": 50,
+        "y": 200,
+        "width": 300,
+        "height": 50
+      },
+      {
+        "id": "music",
+        "name": "音乐",
+        "x": 50,
+        "y": 270,
+        "width": 300,
+        "height": 50
+      },
+      {
+        "id": "vibration",
+        "name": "震动",
+        "x": 50,
+        "y": 340,
+        "width": 300,
+        "height": 50
+      },
+      {
+        "id": "back",
+        "name": "返回",
+        "x": 150,
+        "y": 500,
+        "width": 100,
+        "height": 50
+      }
+    ]
+  },
+  "result": {
+    "canvasWidth": 400,
+    "canvasHeight": 600,
+    "buttons": [
+      {
+        "id": "nextLevel",
+        "name": "下一关",
+        "x": 50,
+        "y": 400,
+        "width": 140,
+        "height": 50
+      },
+      {
+        "id": "retry",
+        "name": "重试",
+        "x": 210,
+        "y": 400,
+        "width": 140,
+        "height": 50
+      },
+      {
+        "id": "home",
+        "name": "主页",
+        "x": 130,
+        "y": 480,
+        "width": 140,
+        "height": 50
+      }
+    ]
+  }
+}

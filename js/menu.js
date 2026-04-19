@@ -4,7 +4,7 @@
  */
 
 export default class Menu {
-  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null, shopManager = null, settingsManager = null, announcementManager = null, inventoryManager = null, guideManager = null, tutorialManager = null, feedbackManager = null) {
+  constructor(databus, userInfo, main = null, signInManager = null, taskManager = null, shopManager = null, settingsManager = null, announcementManager = null, inventoryManager = null, guideManager = null, tutorialManager = null, feedbackManager = null, creativeWorkshopManager = null, studioManager = null) {
     this.databus = databus
     this.userInfo = userInfo
     this.main = main  // 添加 main 引用，用于访问广告管理器
@@ -17,6 +17,8 @@ export default class Menu {
     this.guideManager = guideManager  // 添加引导管理器
     this.tutorialManager = tutorialManager  // 添加教程管理器
     this.feedbackManager = feedbackManager  // 添加反馈管理器
+    this.creativeWorkshopManager = creativeWorkshopManager
+    this.studioManager = studioManager  // 添加工作室管理器
 
     // 刘海屏安全区域偏移量
     this.safeAreaTop = 50
@@ -25,35 +27,39 @@ export default class Menu {
     this.dirtyRects = [] // 脏矩形列表
     this.lastRenderTime = 0
     this.renderThrottle = 16 // 16ms = ~60fps
-    
-    // UI位置配置（已适配刘海屏）
-    this.uiPositions = {
+
+    // 从JSON配置文件加载UI位置
+    this.uiPositions = this.loadUIPositions()
+
+    // UI位置配置（已适配刘海屏）- 如果JSON加载失败，使用默认值
+    this.uiPositions = this.uiPositions || {
       // 顶部栏
       settingsButton: { x: 20, y: 170, width: 60, height: 30 },
       mailButton: { x: 320, y: 170, width: 60, height: 30 },
-      
+
       // 用户信息区域
       avatarArea: { x: 180, y: 270, size: 60 },
       userInfo: { x: 180, y: 340 },
-      
-      // 主要功能按钮（3行2列布局）
+
+      // 主要功能按钮（2行2列布局）
       startGameButton: { x: 50, y: 400, width: 140, height: 50 },
       quickChallengeButton: { x: 210, y: 400, width: 140, height: 50 },
       collectionButton: { x: 50, y: 480, width: 140, height: 50 },
-      creativeWorkshopButton: { x: 210, y: 480, width: 140, height: 50 },
-      myStudioButton: { x: 50, y: 560, width: 140, height: 50 },
-      inventoryButton: { x: 210, y: 560, width: 140, height: 50 },
-      
+      inventoryButton: { x: 210, y: 480, width: 140, height: 50 },
+
       // 底部导航栏
       navButtons: {
-        task: { x: 50, y: 720, width: 70, height: 40 },
-        shop: { x: 145, y: 720, width: 70, height: 40 },
-        friends: { x: 240, y: 720, width: 70, height: 40 },
-        ranking: { x: 335, y: 720, width: 70, height: 40 }
+        task: { x: 30, y: 680, width: 80, height: 50 },
+        shop: { x: 130, y: 680, width: 80, height: 50 },
+        friends: { x: 230, y: 680, width: 80, height: 50 },
+        ranking: { x: 330, y: 680, width: 80, height: 50 },
+        tutorial: { x: 80, y: 750, width: 80, height: 50 },
+        creative: { x: 180, y: 750, width: 80, height: 50 },
+        studio: { x: 280, y: 750, width: 80, height: 50 }
       },
-      
+
       // 每日签到区域
-      dailySignIn: { x: 130, y: 650, width: 140, height: 60 }
+      dailySignIn: { x: 130, y: 570, width: 140, height: 60 }
     }
 
     // 签到弹窗配置
@@ -150,20 +156,34 @@ export default class Menu {
       tutorialList: [] // 将在渲染时动态计算
     }
 
+    // 创意工坊弹窗配置
+    this.creativeWorkshopModal = {
+      visible: false,
+      position: { x: 30, y: 80, width: 340, height: 580 },
+      closeButton: { x: 340, y: 90, width: 30, height: 30 }
+    }
+
+    // 我的工作室弹窗配置
+    this.myStudioModal = {
+      visible: false,
+      position: { x: 30, y: 80, width: 340, height: 580 },
+      closeButton: { x: 340, y: 90, width: 30, height: 30 }
+    }
+
     // 按钮状态
     this.buttonStates = {
       startGame: { hovered: false, pressed: false },
       quickChallenge: { hovered: false, pressed: false },
       collection: { hovered: false, pressed: false },
-      creativeWorkshop: { hovered: false, pressed: false },
-      myStudio: { hovered: false, pressed: false },
+      inventory: { hovered: false, pressed: false },
       task: { hovered: false, pressed: false },
       shop: { hovered: false, pressed: false },
       friends: { hovered: false, pressed: false },
       ranking: { hovered: false, pressed: false },
       dailySignIn: { hovered: false, pressed: false },
-      inventory: { hovered: false, pressed: false },
-      tutorial: { hovered: false, pressed: false }
+      tutorial: { hovered: false, pressed: false },
+      creative: { hovered: false, pressed: false },
+      studio: { hovered: false, pressed: false }
     }
 
     // 动画相关
@@ -187,7 +207,7 @@ export default class Menu {
     this.needsCacheUpdate = true
 
     // 初始化按钮动画状态
-    const buttonKeys = ['startGame', 'quickChallenge', 'collection', 'creativeWorkshop', 'myStudio', 'inventory']
+    const buttonKeys = ['startGame', 'quickChallenge', 'collection', 'inventory']
     buttonKeys.forEach((key, index) => {
       this.animations.buttonScale[key] = 0
       this.animations.buttonOpacity[key] = 0
@@ -203,7 +223,7 @@ export default class Menu {
 
     // 更新按钮入场动画
     const elapsed = Date.now() - this.animations.animationStartTime
-    const buttonKeys = ['startGame', 'quickChallenge', 'collection', 'creativeWorkshop', 'myStudio', 'inventory']
+    const buttonKeys = ['startGame', 'quickChallenge', 'collection', 'inventory']
 
     buttonKeys.forEach((key, index) => {
       const delay = index * 100 // 每个按钮延迟100ms
@@ -232,21 +252,14 @@ export default class Menu {
    * 更新菜单动画
    */
   updateAnimations() {
-    // 更新头像旋转动画
-    this.animations.avatarRotation += 0.01
+    // 移除所有动画以提高真机稳定性
+    // this.animations.avatarRotation += 0.01
 
-    // 更新按钮缩放动画（悬停效果）
-    for (let buttonName in this.buttonStates) {
-      const state = this.buttonStates[buttonName]
-      if (state.hovered) {
-        this.animations.buttonScale[buttonName] = Math.min(1.1, this.animations.buttonScale[buttonName] || 1)
-      } else {
-        this.animations.buttonScale[buttonName] = Math.max(1, this.animations.buttonScale[buttonName] || 1)
-      }
-    }
+    // 禁用按钮缩放动画以避免真机闪烁
+    // 真机上hover状态不稳定，导致按钮不断缩放造成闪烁
 
-    // 更新粒子效果
-    this.updateParticles()
+    // 移除粒子效果更新
+    // this.updateParticles()
   }
 
   /**
@@ -255,13 +268,7 @@ export default class Menu {
   render(ctx, canvasWidth, canvasHeight) {
     if (!ctx) return
 
-    // 渲染节流（避免过度渲染）
-    const now = Date.now()
-    if (now - this.lastRenderTime < this.renderThrottle) {
-      return
-    }
-    this.lastRenderTime = now
-
+    // 移除渲染节流，每帧都渲染以提高真机稳定性
     // 清空画布
     ctx.clearRect(0, 0, canvasWidth, canvasHeight)
     
@@ -270,10 +277,10 @@ export default class Menu {
     
     // 绘制标题区域（新增）
     this.drawTitleArea(ctx, canvasWidth)
-    
-    // 绘制装饰骨牌动画（新增）
-    this.drawMenuDominoes(ctx, canvasWidth)
-    
+
+    // 移除装饰骨牌动画以提高真机稳定性
+    // this.drawMenuDominoes(ctx, canvasWidth)
+
     // 绘制顶部栏
     this.drawTopBar(ctx, canvasWidth)
     
@@ -288,9 +295,6 @@ export default class Menu {
     
     // 绘制每日签到区域
     this.drawDailySignIn(ctx)
-
-    // 绘制教程按钮
-    this.drawTutorialButton(ctx)
 
     // 绘制签到弹窗
     if (this.signInModal.visible) {
@@ -334,72 +338,78 @@ export default class Menu {
       }
     }
 
-    // 绘制粒子效果
-    this.renderParticles(ctx)
-
-    // 绘制反馈效果
-    if (this.feedbackManager) {
-      this.feedbackManager.render(ctx)
+    // 绘制创意工坊弹窗
+    if (this.creativeWorkshopModal.visible) {
+      this.drawCreativeWorkshopModal(ctx)
     }
+
+    // 绘制工作室弹窗
+    if (this.myStudioModal.visible) {
+      this.drawMyStudioModal(ctx)
+    }
+
+    // 移除粒子效果渲染以提高真机稳定性
+    // this.renderParticles(ctx)
+
+    // 禁用反馈管理器渲染以提高真机稳定性
+    // if (this.feedbackManager) {
+    //   this.feedbackManager.render(ctx)
+    // }
   }
 
   /**
    * 绘制背景
    */
   drawBackground(ctx, width, height) {
-    // 使用缓存的背景（如果可用）
-    if (this.staticCache.background && !this.needsCacheUpdate) {
-      ctx.drawImage(this.staticCache.background, 0, 0)
-      return
-    }
+    // 禁用背景缓存以提高真机稳定性
+    // if (this.staticCache.background && !this.needsCacheUpdate) {
+    //   ctx.drawImage(this.staticCache.background, 0, 0)
+    //   return
+    // }
 
-    // 渐变背景
-    const gradient = ctx.createLinearGradient(0, 0, 0, height)
-    gradient.addColorStop(0, '#1a1a2e')
-    gradient.addColorStop(0.5, '#16213e')
-    gradient.addColorStop(1, '#0f3460')
-    ctx.fillStyle = gradient
+    // 纯色背景（移除渐变以提高真机稳定性）
+    ctx.fillStyle = '#1a1a2e'
     ctx.fillRect(0, 0, width, height)
-    
-    // 装饰性网格
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)'
-    ctx.lineWidth = 1
-    for (let i = 0; i < width; i += 30) {
-      ctx.beginPath()
-      ctx.moveTo(i, 0)
-      ctx.lineTo(i, height)
-      ctx.stroke()
-    }
-    for (let i = 0; i < height; i += 30) {
-      ctx.beginPath()
-      ctx.moveTo(0, i)
-      ctx.lineTo(width, i)
-      ctx.stroke()
-    }
-    
-    // 装饰性背景粒子
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)'
-    for (let i = 0; i < 25; i++) {
-      const x = (i * 37 + Date.now() * 0.008) % width
-      const y = (i * 53) % height
-      const size = 2 + (i % 3)
-      ctx.beginPath()
-      ctx.arc(x, y, size, 0, Math.PI * 2)
-      ctx.fill()
-    }
 
-    // 如果需要更新缓存，创建离屏canvas缓存背景
-    if (this.needsCacheUpdate && typeof OffscreenCanvas !== 'undefined') {
-      try {
-        const offscreen = new OffscreenCanvas(width, height)
-        const offCtx = offscreen.getContext('2d')
-        offCtx.drawImage(ctx.canvas, 0, 0)
-        this.staticCache.background = offscreen
-        this.needsCacheUpdate = false
-      } catch (e) {
-        // OffscreenCanvas不支持，跳过缓存
-      }
-    }
+    // 移除装饰性网格以提高真机稳定性
+    // ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)'
+    // ctx.lineWidth = 1
+    // for (let i = 0; i < width; i += 30) {
+    //   ctx.beginPath()
+    //   ctx.moveTo(i, 0)
+    //   ctx.lineTo(i, height)
+    //   ctx.stroke()
+    // }
+    // for (let i = 0; i < height; i += 30) {
+    //   ctx.beginPath()
+    //   ctx.moveTo(0, i)
+    //   ctx.lineTo(width, i)
+    //   ctx.stroke()
+    // }
+
+    // 移除装饰性背景粒子动画以提高真机稳定性
+    // ctx.fillStyle = 'rgba(255, 255, 255, 0.08)'
+    // for (let i = 0; i < 25; i++) {
+    //   const x = (i * 37 + Date.now() * 0.008) % width
+    //   const y = (i * 53) % height
+    //   const size = 2 + (i % 3)
+    //   ctx.beginPath()
+    //   ctx.arc(x, y, size, 0, Math.PI * 2)
+    //   ctx.fill()
+    // }
+
+    // 禁用背景缓存机制以提高真机稳定性
+    // if (this.needsCacheUpdate && typeof OffscreenCanvas !== 'undefined') {
+    //   try {
+    //     const offscreen = new OffscreenCanvas(width, height)
+    //     const offCtx = offscreen.getContext('2d')
+    //     offCtx.drawImage(ctx.canvas, 0, 0)
+    //     this.staticCache.background = offscreen
+    //     this.needsCacheUpdate = false
+    //   } catch (e) {
+    //     // OffscreenCanvas不支持，跳过缓存
+    //   }
+    // }
   }
 
   /**
@@ -446,14 +456,11 @@ export default class Menu {
     const centerX = canvasWidth / 2
     const offsetY = this.safeAreaTop  // 刘海屏偏移
     
-    // 主标题
+    // 主标题（移除阴影效果以提高真机稳定性）
     ctx.fillStyle = '#FFD700'
     ctx.font = 'bold 42px Arial'
     ctx.textAlign = 'center'
-    ctx.shadowColor = '#FFD700'
-    ctx.shadowBlur = 20
     ctx.fillText('🎯 多米诺骨牌', centerX, 55 + offsetY)
-    ctx.shadowBlur = 0
     
     // 副标题
     ctx.fillStyle = '#e0e0e0'
@@ -522,21 +529,20 @@ export default class Menu {
    */
   drawUserInfo(ctx) {
     const { avatarArea, userInfo } = this.uiPositions
-    
-    // 绘制头像背景圆圈
+
+    // 绘制头像背景圆圈（移除旋转变换以提高真机稳定性）
     ctx.save()
     ctx.translate(avatarArea.x, avatarArea.y)
-    ctx.rotate(this.animations.avatarRotation)
-    
+
     ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
     ctx.beginPath()
     ctx.arc(0, 0, avatarArea.size / 2, 0, Math.PI * 2)
     ctx.fill()
-    
+
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
     ctx.lineWidth = 2
     ctx.stroke()
-    
+
     // 绘制头像或默认图标
     if (this.userInfo?.profile?.avatarUrl) {
       ctx.fillStyle = '#666666'
@@ -551,7 +557,7 @@ export default class Menu {
       ctx.textBaseline = 'middle'
       ctx.fillText('👤', 0, 0)
     }
-    
+
     ctx.restore()
     
     // 绘制等级徽章
@@ -591,15 +597,13 @@ export default class Menu {
       { key: 'startGame', text: '📖 关卡模式', pos: this.uiPositions.startGameButton, color1: '#4CAF50', color2: '#388E3C' },
       { key: 'quickChallenge', text: '🎮 自由模式', pos: this.uiPositions.quickChallengeButton, color1: '#2196F3', color2: '#1565C0' },
       { key: 'collection', text: '我的图鉴', pos: this.uiPositions.collectionButton },
-      { key: 'creativeWorkshop', text: '创意工坊', pos: this.uiPositions.creativeWorkshopButton },
-      { key: 'myStudio', text: '我的工作室', pos: this.uiPositions.myStudioButton },
       { key: 'inventory', text: '🎒 背包', pos: this.uiPositions.inventoryButton, color1: '#FF9800', color2: '#F57C00' }
     ]
 
     buttons.forEach(button => {
-      // 添加入场动画
-      const scale = this.animations.buttonScale[button.key] || 1
-      const opacity = this.animations.buttonOpacity[button.key] || 1
+      // 移除入场动画以提高真机稳定性
+      const scale = 1
+      const opacity = 1
 
       if (button.color1) {
         this.drawColoredButton(ctx, button.text, button.pos, this.buttonStates[button.key], button.color1, button.color2, scale, opacity)
@@ -618,33 +622,13 @@ export default class Menu {
 
     ctx.save()
     ctx.globalAlpha = opacity
-    ctx.translate(centerX, centerY)
-    ctx.scale(scale, scale)
-    ctx.translate(-centerX, -centerY)
-    
-    // 按钮渐变背景
-    const gradient = ctx.createLinearGradient(position.x, position.y, position.x, position.y + position.height)
-    gradient.addColorStop(0, color1)
-    gradient.addColorStop(1, color2)
-    ctx.fillStyle = gradient
-    
-    // 圆角矩形
-    const radius = 8
-    ctx.beginPath()
-    ctx.moveTo(position.x + radius, position.y)
-    ctx.lineTo(position.x + position.width - radius, position.y)
-    ctx.quadraticCurveTo(position.x + position.width, position.y, position.x + position.width, position.y + radius)
-    ctx.lineTo(position.x + position.width, position.y + position.height - radius)
-    ctx.quadraticCurveTo(position.x + position.width, position.y + position.height, position.x + position.width - radius, position.y + position.height)
-    ctx.lineTo(position.x + radius, position.y + position.height)
-    ctx.quadraticCurveTo(position.x, position.y + position.height, position.x, position.y + position.height - radius)
-    ctx.lineTo(position.x, position.y + radius)
-    ctx.quadraticCurveTo(position.x, position.y, position.x + radius, position.y)
-    ctx.closePath()
-    ctx.fill()
 
-    // 按钮边框
-    ctx.strokeStyle = state.hovered ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+    // 按钮纯色背景（移除渐变以提高真机稳定性）
+    ctx.fillStyle = color1
+    ctx.fillRect(position.x, position.y, position.width, position.height)
+
+    // 按钮边框（移除hover效果避免真机闪烁）
+    ctx.strokeStyle = state.pressed ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.3)'
     ctx.lineWidth = 2
     ctx.strokeRect(position.x, position.y, position.width, position.height)
 
@@ -667,31 +651,17 @@ export default class Menu {
 
     ctx.save()
     ctx.globalAlpha = opacity
-    ctx.translate(centerX, centerY)
-    ctx.scale(scale, scale)
-    ctx.translate(-centerX, -centerY)
-    
-    // 按钮背景
-    const gradient = ctx.createLinearGradient(position.x, position.y, position.x, position.y + position.height)
-    if (state.pressed) {
-      gradient.addColorStop(0, '#2a2a4a')
-      gradient.addColorStop(1, '#1a1a3a')
-    } else if (state.hovered) {
-      gradient.addColorStop(0, '#3a3a5a')
-      gradient.addColorStop(1, '#2a2a4a')
-    } else {
-      gradient.addColorStop(0, '#2a2a4a')
-      gradient.addColorStop(1, '#1a1a3a')
-    }
-    
-    ctx.fillStyle = gradient
+    // 移除scale变换以提高真机稳定性
+
+    // 按钮纯色背景（移除渐变以提高真机稳定性）
+    ctx.fillStyle = '#2a2a4a'
     ctx.fillRect(position.x, position.y, position.width, position.height)
-    
-    // 按钮边框
-    ctx.strokeStyle = state.hovered ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.3)'
+
+    // 按钮边框（移除hover效果避免真机闪烁）
+    ctx.strokeStyle = state.pressed ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.3)'
     ctx.lineWidth = 2
     ctx.strokeRect(position.x, position.y, position.width, position.height)
-    
+
     // 按钮文字
     ctx.fillStyle = '#ffffff'
     ctx.font = '16px Arial'
@@ -710,11 +680,16 @@ export default class Menu {
       { key: 'task', text: '任务', icon: '📋', pos: this.uiPositions.navButtons.task },
       { key: 'shop', text: '商店', icon: '🛒', pos: this.uiPositions.navButtons.shop },
       { key: 'friends', text: '好友', icon: '👥', pos: this.uiPositions.navButtons.friends },
-      { key: 'ranking', text: '排行', icon: '🏆', pos: this.uiPositions.navButtons.ranking }
+      { key: 'ranking', text: '排行', icon: '🏆', pos: this.uiPositions.navButtons.ranking },
+      { key: 'tutorial', text: '教程', icon: '📚', pos: this.uiPositions.navButtons.tutorial },
+      { key: 'creative', text: '创意工坊', icon: '🎨', pos: this.uiPositions.navButtons.creative },
+      { key: 'studio', text: '工作室', icon: '🏠', pos: this.uiPositions.navButtons.studio }
     ]
-    
+
     navButtons.forEach(button => {
-      this.drawNavButton(ctx, button.text, button.icon, button.pos, this.buttonStates[button.key])
+      if (button.pos) {
+        this.drawNavButton(ctx, button.text, button.icon, button.pos, this.buttonStates[button.key])
+      }
     })
   }
 
@@ -722,17 +697,17 @@ export default class Menu {
    * 绘制导航按钮
    */
   drawNavButton(ctx, text, icon, position, state) {
-    // 按钮背景
-    ctx.fillStyle = state.hovered ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)'
+    // 按钮背景（移除hover效果避免真机闪烁）
+    ctx.fillStyle = state.pressed ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)'
     ctx.fillRect(position.x, position.y, position.width, position.height)
-    
+
     // 图标
     ctx.fillStyle = '#ffffff'
     ctx.font = '18px Arial'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(icon, position.x + position.width / 2, position.y + position.height / 2 - 5)
-    
+
     // 文字
     ctx.font = '10px Arial'
     ctx.fillText(text, position.x + position.width / 2, position.y + position.height / 2 + 12)
@@ -1587,10 +1562,11 @@ export default class Menu {
    * 绘制教程按钮
    */
   drawTutorialButton(ctx) {
-    const tutorialButton = { x: 200, y: 700, width: 100, height: 40 }
-    const state = this.buttonStates.tutorial || { hovered: false }
+    const tutorialButton = this.uiPositions.tutorialButton || { x: 200, y: 580, width: 100, height: 40 }
+    const state = this.buttonStates.tutorial || { hovered: false, pressed: false }
 
-    ctx.fillStyle = state.hovered ? 'rgba(100, 200, 255, 0.3)' : 'rgba(100, 200, 255, 0.2)'
+    // 按钮背景（移除hover效果避免真机闪烁）
+    ctx.fillStyle = state.pressed ? 'rgba(100, 200, 255, 0.4)' : 'rgba(100, 200, 255, 0.2)'
     ctx.fillRect(tutorialButton.x, tutorialButton.y, tutorialButton.width, tutorialButton.height)
     ctx.strokeStyle = 'rgba(100, 200, 255, 0.5)'
     ctx.lineWidth = 2
@@ -1601,6 +1577,210 @@ export default class Menu {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('📚 教程', tutorialButton.x + tutorialButton.width / 2, tutorialButton.y + tutorialButton.height / 2)
+  }
+
+  /**
+   * 绘制创意工坊弹窗
+   */
+  drawCreativeWorkshopModal(ctx) {
+    const modal = this.creativeWorkshopModal
+
+    // 遮罩层
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+    ctx.fillRect(0, 0, this.databus.canvasWidth, this.databus.canvasHeight)
+
+    // 弹窗背景
+    ctx.fillStyle = 'rgba(40, 40, 50, 0.95)'
+    ctx.fillRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+    ctx.strokeStyle = '#4a9eff'
+    ctx.lineWidth = 2
+    ctx.strokeRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+
+    // 关闭按钮
+    ctx.fillStyle = '#ff4444'
+    ctx.fillRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('✕', modal.closeButton.x + modal.closeButton.width / 2, modal.closeButton.y + modal.closeButton.height / 2)
+
+    // 标题
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 24px Arial'
+    ctx.textAlign = 'center'
+    ctx.fillText('🎨 创意工坊', modal.position.x + modal.position.width / 2, modal.position.y + 50)
+
+    // 关卡模板
+    if (this.creativeWorkshopManager) {
+      const templates = this.creativeWorkshopManager.templates
+      let y = modal.position.y + 100
+
+      ctx.font = '16px Arial'
+      ctx.textAlign = 'left'
+
+      templates.forEach((template, index) => {
+        const itemY = y + index * 90
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
+        ctx.fillRect(modal.position.x + 20, itemY, modal.position.width - 40, 80)
+        ctx.strokeStyle = '#4a9eff'
+        ctx.lineWidth = 1
+        ctx.strokeRect(modal.position.x + 20, itemY, modal.position.width - 40, 80)
+
+        ctx.fillStyle = '#ffffff'
+        ctx.font = '18px Arial'
+        ctx.fillText(`${template.preview} ${template.name}`, modal.position.x + 35, itemY + 25)
+
+        ctx.font = '14px Arial'
+        ctx.fillStyle = '#aaaaaa'
+        ctx.fillText(template.description, modal.position.x + 35, itemY + 50)
+
+        ctx.fillStyle = '#ffcc00'
+        ctx.fillText(`难度: ${'⭐'.repeat(template.difficulty)}`, modal.position.x + 35, itemY + 70)
+      })
+
+      // 玩家关卡
+      const userLevels = this.creativeWorkshopManager.userLevels
+      if (userLevels.length > 0) {
+        y += templates.length * 90 + 30
+        ctx.fillStyle = '#ffffff'
+        ctx.font = 'bold 18px Arial'
+        ctx.fillText('我的关卡', modal.position.x + 35, y)
+
+        userLevels.slice(0, 3).forEach((level, index) => {
+          const itemY = y + 30 + index * 70
+          ctx.fillStyle = 'rgba(100, 200, 100, 0.1)'
+          ctx.fillRect(modal.position.x + 20, itemY, modal.position.width - 40, 60)
+          ctx.strokeStyle = '#66cc66'
+          ctx.lineWidth = 1
+          ctx.strokeRect(modal.position.x + 20, itemY, modal.position.width - 40, 60)
+
+          ctx.fillStyle = '#ffffff'
+          ctx.font = '16px Arial'
+          ctx.fillText(level.name, modal.position.x + 35, itemY + 25)
+
+          ctx.font = '14px Arial'
+          ctx.fillStyle = '#aaaaaa'
+          ctx.fillText(`游玩: ${level.plays} | 完成: ${level.completions}`, modal.position.x + 35, itemY + 50)
+        })
+      }
+    }
+  }
+
+  /**
+   * 绘制工作室弹窗
+   */
+  drawMyStudioModal(ctx) {
+    const modal = this.myStudioModal
+
+    // 遮罩层
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+    ctx.fillRect(0, 0, this.databus.canvasWidth, this.databus.canvasHeight)
+
+    // 弹窗背景
+    ctx.fillStyle = 'rgba(40, 40, 50, 0.95)'
+    ctx.fillRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+    ctx.strokeStyle = '#ff9800'
+    ctx.lineWidth = 2
+    ctx.strokeRect(modal.position.x, modal.position.y, modal.position.width, modal.position.height)
+
+    // 关闭按钮
+    ctx.fillStyle = '#ff4444'
+    ctx.fillRect(modal.closeButton.x, modal.closeButton.y, modal.closeButton.width, modal.closeButton.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('✕', modal.closeButton.x + modal.closeButton.width / 2, modal.closeButton.y + modal.closeButton.height / 2)
+
+    // 标题
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 24px Arial'
+    ctx.textAlign = 'center'
+    ctx.fillText('🏠 我的工作室', modal.position.x + modal.position.width / 2, modal.position.y + 50)
+
+    // 工作室数据
+    if (this.studioManager) {
+      const stats = this.studioManager.getStats()
+      let y = modal.position.y + 100
+
+      // 统计信息
+      ctx.textAlign = 'left'
+      ctx.font = '16px Arial'
+
+      const statsItems = [
+        { label: '总游戏时长', value: `${Math.floor(stats.totalPlayTime / 60)}分钟` },
+        { label: '完成关卡数', value: stats.totalLevelsCompleted },
+        { label: '最高分数', value: stats.highestScore },
+        { label: '完美通关', value: stats.perfectClears }
+      ]
+
+      statsItems.forEach((item, index) => {
+        const itemY = y + index * 50
+        ctx.fillStyle = '#ffffff'
+        ctx.fillText(item.label, modal.position.x + 35, itemY)
+        ctx.fillStyle = '#ffcc00'
+        ctx.fillText(item.value, modal.position.x + 250, itemY)
+      })
+
+      y += statsItems.length * 50 + 30
+
+      // 成就
+      ctx.fillStyle = '#ffffff'
+      ctx.font = 'bold 18px Arial'
+      ctx.fillText('🏆 成就', modal.position.x + 35, y)
+
+      const achievements = this.studioManager.getUnlockedAchievements()
+      y += 30
+
+      if (achievements.length > 0) {
+        achievements.slice(0, 4).forEach((achievement, index) => {
+          const itemY = y + index * 50
+          ctx.fillStyle = 'rgba(255, 215, 0, 0.1)'
+          ctx.fillRect(modal.position.x + 20, itemY, modal.position.width - 40, 40)
+          ctx.strokeStyle = '#ffd700'
+          ctx.lineWidth = 1
+          ctx.strokeRect(modal.position.x + 20, itemY, modal.position.width - 40, 40)
+
+          ctx.fillStyle = '#ffffff'
+          ctx.font = '16px Arial'
+          ctx.fillText(`${achievement.icon} ${achievement.name}`, modal.position.x + 35, itemY + 25)
+        })
+      } else {
+        ctx.fillStyle = '#aaaaaa'
+        ctx.font = '14px Arial'
+        ctx.fillText('暂无成就', modal.position.x + 35, y + 25)
+      }
+
+      y += Math.min(achievements.length, 4) * 50 + 30
+
+      // 装饰品
+      ctx.fillStyle = '#ffffff'
+      ctx.font = 'bold 18px Arial'
+      ctx.fillText('🎭 装饰品', modal.position.x + 35, y)
+
+      const decorations = this.studioManager.getStudioDecorations()
+      y += 30
+
+      if (decorations.length > 0) {
+        decorations.slice(0, 3).forEach((decoration, index) => {
+          const itemY = y + index * 50
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
+          ctx.fillRect(modal.position.x + 20, itemY, modal.position.width - 40, 40)
+          ctx.strokeStyle = '#4a9eff'
+          ctx.lineWidth = 1
+          ctx.strokeRect(modal.position.x + 20, itemY, modal.position.width - 40, 40)
+
+          ctx.fillStyle = '#ffffff'
+          ctx.font = '16px Arial'
+          ctx.fillText(`${decoration.icon} ${decoration.name}`, modal.position.x + 35, itemY + 25)
+        })
+      } else {
+        ctx.fillStyle = '#aaaaaa'
+        ctx.font = '14px Arial'
+        ctx.fillText('暂无装饰品', modal.position.x + 35, y + 25)
+      }
+    }
   }
 
   /**
@@ -1625,8 +1805,6 @@ export default class Menu {
       { key: 'startGame', pos: this.uiPositions.startGameButton },
       { key: 'quickChallenge', pos: this.uiPositions.quickChallengeButton },
       { key: 'collection', pos: this.uiPositions.collectionButton },
-      { key: 'creativeWorkshop', pos: this.uiPositions.creativeWorkshopButton },
-      { key: 'myStudio', pos: this.uiPositions.myStudioButton },
       { key: 'inventory', pos: this.uiPositions.inventoryButton }
     ]
 
@@ -2024,10 +2202,47 @@ export default class Menu {
           return tutorialAction
         }
       }
+      // 点击关闭按钮
+      if (this.isPointInButton(x, y, this.tutorialModal.closeButton)) {
+        this.tutorialModal.visible = false
+        return 'closeTutorialModal'
+      }
       // 点击弹窗外部关闭（遮罩层）
       if (!this.isPointInButton(x, y, this.tutorialModal.position)) {
         this.tutorialModal.visible = false
         return 'closeTutorialModal'
+      }
+      // 点击弹窗内部（但不点击按钮），不穿透到下一层
+      return 'modalClick'
+    }
+
+    // 优先检查创意工坊弹窗（如果弹窗显示，拦截所有点击）
+    if (this.creativeWorkshopModal.visible) {
+      // 点击关闭按钮
+      if (this.isPointInButton(x, y, this.creativeWorkshopModal.closeButton)) {
+        this.creativeWorkshopModal.visible = false
+        return 'closeCreativeWorkshopModal'
+      }
+      // 点击弹窗外部关闭（遮罩层）
+      if (!this.isPointInButton(x, y, this.creativeWorkshopModal.position)) {
+        this.creativeWorkshopModal.visible = false
+        return 'closeCreativeWorkshopModal'
+      }
+      // 点击弹窗内部（但不点击按钮），不穿透到下一层
+      return 'modalClick'
+    }
+
+    // 优先检查工作室弹窗（如果弹窗显示，拦截所有点击）
+    if (this.myStudioModal.visible) {
+      // 点击关闭按钮
+      if (this.isPointInButton(x, y, this.myStudioModal.closeButton)) {
+        this.myStudioModal.visible = false
+        return 'closeMyStudioModal'
+      }
+      // 点击弹窗外部关闭（遮罩层）
+      if (!this.isPointInButton(x, y, this.myStudioModal.position)) {
+        this.myStudioModal.visible = false
+        return 'closeMyStudioModal'
       }
       // 点击弹窗内部（但不点击按钮），不穿透到下一层
       return 'modalClick'
@@ -2055,20 +2270,6 @@ export default class Menu {
       }
       return 'collection'
     }
-    if (this.isPointInButton(x, y, this.uiPositions.creativeWorkshopButton)) {
-      if (this.feedbackManager) {
-        this.feedbackManager.addParticles(x, y, '#ffffff', 10, 'burst')
-        this.feedbackManager.playSound('button_click')
-      }
-      return 'creativeWorkshop'
-    }
-    if (this.isPointInButton(x, y, this.uiPositions.myStudioButton)) {
-      if (this.feedbackManager) {
-        this.feedbackManager.addParticles(x, y, '#ffffff', 10, 'burst')
-        this.feedbackManager.playSound('button_click')
-      }
-      return 'myStudio'
-    }
     if (this.isPointInButton(x, y, this.uiPositions.inventoryButton)) {
       // 打开背包弹窗
       this.inventoryModal.visible = true
@@ -2080,21 +2281,36 @@ export default class Menu {
     }
 
     // 检查导航按钮点击
-    if (this.isPointInButton(x, y, this.uiPositions.navButtons.task)) {
+    if (this.uiPositions.navButtons.task && this.isPointInButton(x, y, this.uiPositions.navButtons.task)) {
       // 打开任务弹窗
       this.taskModal.visible = true
       return 'taskModal'
     }
-    if (this.isPointInButton(x, y, this.uiPositions.navButtons.shop)) {
+    if (this.uiPositions.navButtons.shop && this.isPointInButton(x, y, this.uiPositions.navButtons.shop)) {
       // 打开商店弹窗
       this.shopModal.visible = true
       return 'shopModal'
     }
-    if (this.isPointInButton(x, y, this.uiPositions.navButtons.friends)) {
+    if (this.uiPositions.navButtons.friends && this.isPointInButton(x, y, this.uiPositions.navButtons.friends)) {
       return 'friends'
     }
-    if (this.isPointInButton(x, y, this.uiPositions.navButtons.ranking)) {
+    if (this.uiPositions.navButtons.ranking && this.isPointInButton(x, y, this.uiPositions.navButtons.ranking)) {
       return 'ranking'
+    }
+    if (this.uiPositions.navButtons.tutorial && this.isPointInButton(x, y, this.uiPositions.navButtons.tutorial)) {
+      // 打开教程弹窗
+      this.tutorialModal.visible = true
+      return 'tutorialModal'
+    }
+    if (this.uiPositions.navButtons.creative && this.isPointInButton(x, y, this.uiPositions.navButtons.creative)) {
+      // 打开创意工坊
+      this.creativeWorkshopModal.visible = true
+      return 'creativeWorkshopModal'
+    }
+    if (this.uiPositions.navButtons.studio && this.isPointInButton(x, y, this.uiPositions.navButtons.studio)) {
+      // 打开我的工作室
+      this.myStudioModal.visible = true
+      return 'myStudioModal'
     }
 
     // 检查每日签到点击
@@ -2114,8 +2330,9 @@ export default class Menu {
       return 'announcementModal'
     }
 
-    // 检查教程按钮点击（临时添加在主菜单下方）
-    if (this.isPointInButton(x, y, { x: 200, y: 700, width: 100, height: 40 })) {
+    // 检查教程按钮点击
+    const tutorialButton = this.uiPositions.tutorialButton || { x: 200, y: 580, width: 100, height: 40 }
+    if (this.isPointInButton(x, y, tutorialButton)) {
       // 打开教程弹窗
       this.tutorialModal.visible = true
       return 'tutorialModal'
@@ -2211,5 +2428,231 @@ export default class Menu {
       this.buttonStates[buttonName].pressed = false
     }
     this.animations.particles = []
+  }
+
+  /**
+   * 从JSON配置文件加载UI位置
+   */
+  loadUIPositions() {
+    try {
+      // 微信小游戏环境使用wx.getFileSystemManager()
+      if (typeof wx !== 'undefined' && wx.getFileSystemManager) {
+        const fs = wx.getFileSystemManager()
+        const userConfigPath = `${wx.env.USER_DATA_PATH}/config/ui-positions.json`
+
+        try {
+          const configStr = fs.readFileSync(userConfigPath, 'utf8')
+          const config = JSON.parse(configStr)
+          const menuConfig = config.menu
+
+          // 将按钮配置转换为uiPositions格式，保留默认配置
+          const uiPositions = {
+            // 顶部栏
+            settingsButton: { x: 20, y: 170, width: 60, height: 30 },
+            mailButton: { x: 320, y: 170, width: 60, height: 30 },
+
+            // 用户信息区域
+            avatarArea: { x: 180, y: 270, size: 60 },
+            userInfo: { x: 180, y: 340 },
+
+            // 主要功能按钮（默认值，会被JSON覆盖）
+            startGameButton: { x: 50, y: 400, width: 140, height: 50 },
+            quickChallengeButton: { x: 210, y: 400, width: 140, height: 50 },
+            collectionButton: { x: 50, y: 480, width: 140, height: 50 },
+            inventoryButton: { x: 210, y: 480, width: 140, height: 50 },
+
+            // 底部导航栏（4*2网格布局）
+            navButtons: {
+              task: { x: 30, y: 680, width: 80, height: 50 },
+              shop: { x: 130, y: 680, width: 80, height: 50 },
+              friends: { x: 230, y: 680, width: 80, height: 50 },
+              ranking: { x: 330, y: 680, width: 80, height: 50 },
+              tutorial: { x: 80, y: 750, width: 80, height: 50 },
+              creative: { x: 180, y: 750, width: 80, height: 50 },
+              studio: { x: 280, y: 750, width: 80, height: 50 }
+            },
+
+            // 每日签到区域
+            dailySignIn: { x: 130, y: 650, width: 140, height: 60 }
+          }
+
+          // 将JSON中的按钮配置转换为camelCase并覆盖默认值
+          if (menuConfig && menuConfig.buttons) {
+            menuConfig.buttons.forEach(button => {
+              const camelCase = button.id
+                .split(/(?=[A-Z])/)
+                .map((word, index) =>
+                  index === 0 ? word.toLowerCase() : word.charAt(0).toLowerCase() + word.slice(1)
+                )
+                .join('')
+              uiPositions[camelCase] = {
+                x: button.x,
+                y: button.y,
+                width: button.width,
+                height: button.height
+              }
+            })
+          }
+
+          // 将JSON中的其他元素配置转换为camelCase并覆盖默认值
+          if (menuConfig && menuConfig.elements) {
+            menuConfig.elements.forEach(element => {
+              const camelCase = element.id
+                .split(/(?=[A-Z])/)
+                .map((word, index) =>
+                  index === 0 ? word.toLowerCase() : word.charAt(0).toLowerCase() + word.slice(1)
+                )
+                .join('')
+
+              // 根据元素类型设置属性
+              if (element.type === 'circle') {
+                uiPositions[camelCase] = {
+                  x: element.x,
+                  y: element.y,
+                  size: element.size
+                }
+              } else if (element.type === 'point') {
+                uiPositions[camelCase] = {
+                  x: element.x,
+                  y: element.y
+                }
+              } else if (element.id.startsWith('nav')) {
+                // 导航按钮需要特殊处理
+                const navName = camelCase.replace('nav', '').toLowerCase()
+                if (!uiPositions.navButtons) {
+                  uiPositions.navButtons = {}
+                }
+                uiPositions.navButtons[navName] = {
+                  x: element.x,
+                  y: element.y,
+                  width: element.width,
+                  height: element.height
+                }
+              } else {
+                uiPositions[camelCase] = {
+                  x: element.x,
+                  y: element.y,
+                  width: element.width,
+                  height: element.height
+                }
+              }
+            })
+          }
+
+          return uiPositions
+        } catch (readError) {
+          console.log('用户数据路径配置文件不存在，尝试从项目目录读取')
+          // 尝试从项目目录读取（开发环境）
+          try {
+            const projectConfigPath = 'config/ui-positions.json'
+            const configStr = fs.readFileSync(projectConfigPath, 'utf8')
+            const config = JSON.parse(configStr)
+            const menuConfig = config.menu
+
+            // 将按钮配置转换为uiPositions格式，保留默认配置
+            const uiPositions = {
+              // 顶部栏
+              settingsButton: { x: 20, y: 170, width: 60, height: 30 },
+              mailButton: { x: 320, y: 170, width: 60, height: 30 },
+
+              // 用户信息区域
+              avatarArea: { x: 180, y: 270, size: 60 },
+              userInfo: { x: 180, y: 340 },
+
+              // 主要功能按钮（默认值，会被JSON覆盖）
+              startGameButton: { x: 50, y: 400, width: 140, height: 50 },
+              quickChallengeButton: { x: 210, y: 400, width: 140, height: 50 },
+              collectionButton: { x: 50, y: 480, width: 140, height: 50 },
+              inventoryButton: { x: 210, y: 480, width: 140, height: 50 },
+
+              // 底部导航栏（4*2网格布局）
+              navButtons: {
+                task: { x: 30, y: 680, width: 80, height: 50 },
+                shop: { x: 130, y: 680, width: 80, height: 50 },
+                friends: { x: 230, y: 680, width: 80, height: 50 },
+                ranking: { x: 330, y: 680, width: 80, height: 50 },
+                tutorial: { x: 80, y: 750, width: 80, height: 50 },
+                creative: { x: 180, y: 750, width: 80, height: 50 },
+                studio: { x: 280, y: 750, width: 80, height: 50 }
+              },
+
+              // 每日签到区域
+              dailySignIn: { x: 130, y: 570, width: 140, height: 60 }
+            }
+
+            // 将JSON中的按钮配置转换为camelCase并覆盖默认值
+            if (menuConfig && menuConfig.buttons) {
+              menuConfig.buttons.forEach(button => {
+                const camelCase = button.id
+                  .split(/(?=[A-Z])/)
+                  .map((word, index) =>
+                    index === 0 ? word.toLowerCase() : word.charAt(0).toLowerCase() + word.slice(1)
+                  )
+                  .join('')
+                uiPositions[camelCase] = {
+                  x: button.x,
+                  y: button.y,
+                  width: button.width,
+                  height: button.height
+                }
+              })
+            }
+
+            // 将JSON中的其他元素配置转换为camelCase并覆盖默认值
+            if (menuConfig && menuConfig.elements) {
+              menuConfig.elements.forEach(element => {
+                const camelCase = element.id
+                  .split(/(?=[A-Z])/)
+                  .map((word, index) =>
+                    index === 0 ? word.toLowerCase() : word.charAt(0).toLowerCase() + word.slice(1)
+                  )
+                  .join('')
+
+                // 根据元素类型设置属性
+                if (element.type === 'circle') {
+                  uiPositions[camelCase] = {
+                    x: element.x,
+                    y: element.y,
+                    size: element.size
+                  }
+                } else if (element.type === 'point') {
+                  uiPositions[camelCase] = {
+                    x: element.x,
+                    y: element.y
+                  }
+                } else if (element.id.startsWith('nav')) {
+                  // 导航按钮需要特殊处理
+                  const navName = camelCase.replace('nav', '').toLowerCase()
+                  if (!uiPositions.navButtons) {
+                    uiPositions.navButtons = {}
+                  }
+                  uiPositions.navButtons[navName] = {
+                    x: element.x,
+                    y: element.y,
+                    width: element.width,
+                    height: element.height
+                  }
+                } else {
+                  uiPositions[camelCase] = {
+                    x: element.x,
+                    y: element.y,
+                    width: element.width,
+                    height: element.height
+                  }
+                }
+              })
+            }
+
+            return uiPositions
+          } catch (projectError) {
+            console.log('项目目录配置文件也不存在，使用默认配置')
+            return null
+          }
+        }
+      }
+    } catch (error) {
+      console.error('加载UI配置失败:', error)
+    }
+    return null
   }
 }
