@@ -46,9 +46,25 @@ export default class DominoChainGame extends SubGameBase {
             { id: 'normal', name: '普通', color: '#ff6b6b', width: 10, height: 50, count: 10 },
             { id: 'tall', name: '高型', color: '#4ecdc4', width: 10, height: 70, count: 5 },
             { id: 'wide', name: '宽型', color: '#f9ca24', width: 15, height: 40, count: 5 },
-            { id: 'heavy', name: '重型', color: '#6ab04c', width: 12, height: 55, count: 3 }
+            { id: 'heavy', name: '重型', color: '#6ab04c', width: 12, height: 55, count: 3 },
+            { id: 'short', name: '矮型', color: '#a55eea', width: 8, height: 35, count: 8 },
+            { id: 'giant', name: '巨型', color: '#fd9644', width: 20, height: 80, count: 2 },
+            { id: 'thin', name: '薄型', color: '#26de81', width: 6, height: 45, count: 10 },
+            { id: 'pyramid', name: '金字塔', color: '#fed330', width: 25, height: 60, count: 2 }
         ]
         this.selectedTypeIndex = 0
+
+        // ========== 障碍物类型系统 ==========
+        this.obstacleTypes = [
+            { id: 'wall', name: '墙壁', color: '#555', width: 40, height: 50, count: 3 },
+            { id: 'pit', name: '坑洞', color: '#222', width: 30, height: 30, count: 3 },
+            { id: 'spring', name: '弹簧', color: '#ff9800', width: 30, height: 20, count: 3 },
+            { id: 'ramp', name: '斜坡', color: '#7f8c8d', width: 50, height: 20, count: 2 },
+            { id: 'triangle', name: '三角', color: '#e74c3c', width: 30, height: 30, count: 3 },
+            { id: 'circle', name: '圆形', color: '#3498db', width: 30, height: 30, count: 3 }
+        ]
+        this.selectedObstacleIndex = 0
+        this.isObstacleMode = false
         
         // ========== 道具系统 ==========
         this.powerUps = []  // 当前关卡可用道具
@@ -127,6 +143,35 @@ export default class DominoChainGame extends SubGameBase {
         this.gameMode = 'freePlay'
         this.reset()
     }
+
+    loadPreset(levelId) {
+        const level = getLevel(levelId)
+        if (!level) return
+
+        this.reset()
+        this.currentLevel = null
+
+        // 加载多米诺数量
+        this.dominoTypes.forEach(type => {
+            type.count = level.dominoes[type.id] || 0
+        })
+
+        // 加载障碍物
+        this.obstacles = (level.obstacles || []).map(obs => ({
+            ...obs,
+            y: obs.y !== undefined ? this.groundY - obs.height : this.groundY
+        }))
+
+        // 加载预设骨牌
+        if (level.preset && level.preset.length > 0) {
+            level.preset.forEach(preset => {
+                const typeData = this.dominoTypes.find(t => t.id === preset.type)
+                if (typeData) this.placeDomino(preset.x, this.groundY, typeData)
+            })
+        }
+
+        wx.showToast({ title: '预设加载成功', icon: 'success' })
+    }
     
     loadLevelConfig(level) {
         this.dominoTypes.forEach(type => {
@@ -166,8 +211,22 @@ export default class DominoChainGame extends SubGameBase {
             else if (type.id === 'tall') type.count = 5
             else if (type.id === 'wide') type.count = 5
             else if (type.id === 'heavy') type.count = 3
+            else if (type.id === 'short') type.count = 8
+            else if (type.id === 'giant') type.count = 2
+            else if (type.id === 'thin') type.count = 10
+            else if (type.id === 'pyramid') type.count = 2
+        })
+        this.obstacleTypes.forEach(type => {
+            if (type.id === 'wall') type.count = 3
+            else if (type.id === 'pit') type.count = 3
+            else if (type.id === 'spring') type.count = 3
+            else if (type.id === 'ramp') type.count = 2
+            else if (type.id === 'triangle') type.count = 3
+            else if (type.id === 'circle') type.count = 3
         })
         this.selectedTypeIndex = 0
+        this.selectedObstacleIndex = 0
+        this.isObstacleMode = false
     }
     
     // 获取总剩余骨牌数
@@ -368,6 +427,12 @@ export default class DominoChainGame extends SubGameBase {
             this.startSimulation()
             return
         }
+
+        // 检查预设加载按钮（自由模式）
+        if (this.gameMode === 'freePlay' && this.checkPresetButton(x, y)) {
+            this.showPresetSelector()
+            return
+        }
         
         // 双指缩放检测
         if (e.touches.length === 2) {
@@ -377,16 +442,34 @@ export default class DominoChainGame extends SubGameBase {
             return
         }
         
-        // 检查道具区点击 - 选择骨牌类型或开始拖拽
+        // 检查道具区点击 - 选择骨牌类型或障碍物类型
         if (this.checkInventoryArea(y)) {
-            // 检查是否点击了某个骨牌类型
-            const typeIndex = this.getClickedTypeIndex(x, y)
-            if (typeIndex !== -1 && this.dominoTypes[typeIndex].count > 0) {
-                this.selectedTypeIndex = typeIndex
-                this.isDraggingDomino = true
-                this.dragX = x
-                this.dragY = y
-                this.dragType = this.dominoTypes[typeIndex]
+            // 检查是否点击了模式切换按钮
+            if (this.checkModeSwitchButton(x, y)) {
+                this.isObstacleMode = !this.isObstacleMode
+                return
+            }
+
+            if (this.isObstacleMode) {
+                // 障碍物模式
+                const typeIndex = this.getClickedObstacleIndex(x, y)
+                if (typeIndex !== -1 && this.obstacleTypes[typeIndex].count > 0) {
+                    this.selectedObstacleIndex = typeIndex
+                    this.isDraggingDomino = true
+                    this.dragX = x
+                    this.dragY = y
+                    this.dragType = this.obstacleTypes[typeIndex]
+                }
+            } else {
+                // 骨牌模式
+                const typeIndex = this.getClickedTypeIndex(x, y)
+                if (typeIndex !== -1 && this.dominoTypes[typeIndex].count > 0) {
+                    this.selectedTypeIndex = typeIndex
+                    this.isDraggingDomino = true
+                    this.dragX = x
+                    this.dragY = y
+                    this.dragType = this.dominoTypes[typeIndex]
+                }
             }
             return
         }
@@ -459,16 +542,22 @@ export default class DominoChainGame extends SubGameBase {
             return
         }
         
-        // 骨牌拖拽结束
+        // 骨牌/障碍物拖拽结束
         if (this.isDraggingDomino) {
-            // 检查是否与障碍物碰撞
             const worldPos = this.screenToWorld(x, y)
             if (y < this.canvas.height - 120 && this.dragType && this.dragType.count > 0) {
-                if (!this.checkObstacleCollision(worldPos.x, this.groundY, this.dragType)) {
-                    this.placeDomino(worldPos.x, this.groundY, this.dragType)
+                if (this.isObstacleMode) {
+                    // 放置障碍物
+                    this.placeObstacle(worldPos.x, this.groundY, this.dragType)
                     this.dragType.count--
                 } else {
-                    wx.showToast({ title: '不能放在障碍物上', icon: 'none' })
+                    // 放置骨牌
+                    if (!this.checkObstacleCollision(worldPos.x, this.groundY, this.dragType)) {
+                        this.placeDomino(worldPos.x, this.groundY, this.dragType)
+                        this.dragType.count--
+                    } else {
+                        wx.showToast({ title: '不能放在障碍物上', icon: 'none' })
+                    }
                 }
             }
             this.isDraggingDomino = false
@@ -506,13 +595,25 @@ export default class DominoChainGame extends SubGameBase {
         }
         this.dominoes.push(domino)
     }
+
+    placeObstacle(x, y, type) {
+        const obstacle = {
+            x: x,
+            y: y,
+            width: type.width,
+            height: type.height,
+            type: type.id,
+            color: type.color
+        }
+        this.obstacles.push(obstacle)
+    }
     
     // 获取点击的骨牌类型索引
     getClickedTypeIndex(x, y) {
         const invY = this.canvas.height - 120
         const typeWidth = 70
         const startX = (this.canvas.width - this.dominoTypes.length * typeWidth) / 2
-        
+
         for (let i = 0; i < this.dominoTypes.length; i++) {
             const typeX = startX + i * typeWidth
             if (x >= typeX && x <= typeX + typeWidth - 10 &&
@@ -521,6 +622,48 @@ export default class DominoChainGame extends SubGameBase {
             }
         }
         return -1
+    }
+
+    // 获取点击的障碍物类型索引
+    getClickedObstacleIndex(x, y) {
+        const invY = this.canvas.height - 120
+        const typeWidth = 70
+        const startX = (this.canvas.width - this.obstacleTypes.length * typeWidth) / 2
+
+        for (let i = 0; i < this.obstacleTypes.length; i++) {
+            const typeX = startX + i * typeWidth
+            if (x >= typeX && x <= typeX + typeWidth - 10 &&
+                y >= invY + 20 && y <= invY + 90) {
+                return i
+            }
+        }
+        return -1
+    }
+
+    // 检查模式切换按钮
+    checkModeSwitchButton(x, y) {
+        const invY = this.canvas.height - 120
+        const btnX = 20
+        const btnY = invY + 20
+        const btnW = 80
+        const btnH = 30
+        return x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH
+    }
+
+    // 检查预设加载按钮
+    checkPresetButton(x, y) {
+        const canvas = this.canvas
+        const presetBtnX = canvas.width - 170
+        const presetBtnY = 20
+        const presetBtnW = 70
+        const presetBtnH = 35
+        return x >= presetBtnX && x <= presetBtnX + presetBtnW && y >= presetBtnY && y <= presetBtnY + presetBtnH
+    }
+
+    // 显示预设选择器
+    showPresetSelector() {
+        const levelId = 1 // 默认加载第一关预设
+        this.loadPreset(levelId)
     }
     
     // 障碍物碰撞检测
@@ -812,57 +955,107 @@ export default class DominoChainGame extends SubGameBase {
     drawInventory() {
         const ctx = this.ctx
         const canvas = this.canvas
-        
+
         // 道具区背景
         const invY = canvas.height - 120
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
         ctx.fillRect(0, invY, canvas.width, 120)
-        
+
+        // 模式切换按钮
+        const btnX = 20
+        const btnY = invY + 20
+        const btnW = 80
+        const btnH = 30
+        ctx.fillStyle = this.isObstacleMode ? '#e74c3c' : '#4ecdc4'
+        ctx.fillRect(btnX, btnY, btnW, btnH)
+        ctx.strokeStyle = '#fff'
+        ctx.lineWidth = 2
+        ctx.strokeRect(btnX, btnY, btnW, btnH)
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 14px Arial'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(this.isObstacleMode ? '障碍物' : '骨牌', btnX + btnW / 2, btnY + btnH / 2)
+
         // 提示文字
         ctx.fillStyle = '#fff'
         ctx.font = '14px Arial'
         ctx.textAlign = 'center'
-        ctx.fillText('选择骨牌类型，拖拽到上方放置', canvas.width / 2, invY + 15)
-        
-        // 绘制各种骨牌类型
-        const typeWidth = 70
-        const startX = (canvas.width - this.dominoTypes.length * typeWidth) / 2
-        
-        this.dominoTypes.forEach((type, index) => {
-            const typeX = startX + index * typeWidth
-            const isSelected = index === this.selectedTypeIndex
-            const isEmpty = type.count === 0
-            
-            // 选中框
-            if (isSelected && !isEmpty) {
-                ctx.strokeStyle = '#FFD700'
-                ctx.lineWidth = 3
-                ctx.strokeRect(typeX, invY + 20, typeWidth - 10, 70)
-            }
-            
-            // 骨牌预览
-            ctx.save()
-            if (isEmpty) ctx.globalAlpha = 0.3
-            ctx.fillStyle = type.color
-            const previewX = typeX + (typeWidth - 10 - type.width) / 2
-            const previewY = invY + 35
-            ctx.fillRect(previewX, previewY, type.width, Math.min(type.height, 40))
-            ctx.strokeStyle = '#333'
-            ctx.lineWidth = 1
-            ctx.strokeRect(previewX, previewY, type.width, Math.min(type.height, 40))
-            ctx.restore()
-            
-            // 剩余数量
-            ctx.fillStyle = isEmpty ? '#ff4444' : '#fff'
-            ctx.font = 'bold 12px Arial'
-            ctx.textAlign = 'center'
-            ctx.fillText(`x${type.count}`, typeX + (typeWidth - 10) / 2, invY + 85)
-            
-            // 类型名称
-            ctx.fillStyle = '#aaa'
-            ctx.font = '10px Arial'
-            ctx.fillText(type.name, typeX + (typeWidth - 10) / 2, invY + 100)
-        })
+        ctx.fillText(this.isObstacleMode ? '选择障碍物类型，拖拽到上方放置' : '选择骨牌类型，拖拽到上方放置', canvas.width / 2, invY + 15)
+
+        if (this.isObstacleMode) {
+            // 绘制障碍物类型
+            const typeWidth = 70
+            const startX = (canvas.width - this.obstacleTypes.length * typeWidth) / 2
+
+            this.obstacleTypes.forEach((type, index) => {
+                const typeX = startX + index * typeWidth
+                const isSelected = index === this.selectedObstacleIndex
+                const isEmpty = type.count === 0
+
+                // 选中框
+                if (isSelected && !isEmpty) {
+                    ctx.strokeStyle = '#FFD700'
+                    ctx.lineWidth = 3
+                    ctx.strokeRect(typeX, invY + 20, typeWidth - 10, 70)
+                }
+
+                // 障碍物预览
+                ctx.save()
+                if (isEmpty) ctx.globalAlpha = 0.3
+
+                ctx.fillStyle = type.color
+                ctx.fillRect(typeX + 15, invY + 40, type.width / 2, type.height / 2)
+
+                ctx.fillStyle = '#fff'
+                ctx.font = '11px Arial'
+                ctx.textAlign = 'center'
+                ctx.fillText(type.name, typeX + (typeWidth - 10) / 2, invY + 90)
+                ctx.fillText(`×${type.count}`, typeX + (typeWidth - 10) / 2, invY + 105)
+
+                ctx.restore()
+            })
+        } else {
+            // 绘制骨牌类型
+            const typeWidth = 70
+            const startX = (canvas.width - this.dominoTypes.length * typeWidth) / 2
+
+            this.dominoTypes.forEach((type, index) => {
+                const typeX = startX + index * typeWidth
+                const isSelected = index === this.selectedTypeIndex
+                const isEmpty = type.count === 0
+
+                // 选中框
+                if (isSelected && !isEmpty) {
+                    ctx.strokeStyle = '#FFD700'
+                    ctx.lineWidth = 3
+                    ctx.strokeRect(typeX, invY + 20, typeWidth - 10, 70)
+                }
+
+                // 骨牌预览
+                ctx.save()
+                if (isEmpty) ctx.globalAlpha = 0.3
+                ctx.fillStyle = type.color
+                const previewX = typeX + (typeWidth - 10 - type.width) / 2
+                const previewY = invY + 35
+                ctx.fillRect(previewX, previewY, type.width, Math.min(type.height, 40))
+                ctx.strokeStyle = '#333'
+                ctx.lineWidth = 1
+                ctx.strokeRect(previewX, previewY, type.width, Math.min(type.height, 40))
+                ctx.restore()
+
+                // 剩余数量
+                ctx.fillStyle = isEmpty ? '#ff4444' : '#fff'
+                ctx.font = 'bold 12px Arial'
+                ctx.textAlign = 'center'
+                ctx.fillText(`x${type.count}`, typeX + (typeWidth - 10) / 2, invY + 85)
+
+                // 类型名称
+                ctx.fillStyle = '#aaa'
+                ctx.font = '10px Arial'
+                ctx.fillText(type.name, typeX + (typeWidth - 10) / 2, invY + 100)
+            })
+        }
         
         // 已放置数量
         ctx.fillStyle = '#4ecdc4'
@@ -927,7 +1120,7 @@ export default class DominoChainGame extends SubGameBase {
         const canvas = this.canvas
         
         // 返回按钮（左上角）
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
         ctx.fillRect(20, 20, 70, 35)
         ctx.fillStyle = '#fff'
         ctx.font = '14px Arial'
@@ -935,20 +1128,61 @@ export default class DominoChainGame extends SubGameBase {
         ctx.fillText('← 返回', 55, 43)
         
         // 开始按钮
-        const startX = canvas.width - 90
-        const startY = 60
-        ctx.fillStyle = this.isSimulating ? '#666' : '#4CAF50'
-        ctx.fillRect(startX, startY, 70, 35)
-        ctx.fillStyle = '#fff'
-        ctx.fillText('开始', startX + 35, startY + 23)
-        
+        if (!this.isSimulating) {
+            const btnX = canvas.width - 90
+            const btnY = 20
+            const btnW = 70
+            const btnH = 35
+
+            ctx.fillStyle = 'rgba(76, 175, 80, 0.8)'
+            ctx.fillRect(btnX, btnY, btnW, btnH)
+            ctx.strokeStyle = '#fff'
+            ctx.lineWidth = 2
+            ctx.strokeRect(btnX, btnY, btnW, btnH)
+
+            ctx.fillStyle = '#fff'
+            ctx.font = 'bold 14px Arial'
+            ctx.textAlign = 'center'
+            ctx.fillText('开始', btnX + btnW / 2, btnY + btnH / 2 + 5)
+        }
+
+        // 自由模式特有按钮
+        if (this.gameMode === 'freePlay') {
+            // 预设加载按钮
+            const presetBtnX = canvas.width - 170
+            const presetBtnY = 20
+            const presetBtnW = 70
+            const presetBtnH = 35
+
+            ctx.fillStyle = 'rgba(52, 152, 219, 0.8)'
+            ctx.fillRect(presetBtnX, presetBtnY, presetBtnW, presetBtnH)
+            ctx.strokeStyle = '#fff'
+            ctx.lineWidth = 2
+            ctx.strokeRect(presetBtnX, presetBtnY, presetBtnW, presetBtnH)
+
+            ctx.fillStyle = '#fff'
+            ctx.font = 'bold 12px Arial'
+            ctx.textAlign = 'center'
+            ctx.fillText('加载预设', presetBtnX + presetBtnW / 2, presetBtnY + presetBtnH / 2 + 4)
+        }
+
         // 重置按钮
-        const resetY = 105
-        ctx.fillStyle = '#f44336'
-        ctx.fillRect(startX, resetY, 70, 35)
+        const resetX = canvas.width / 2 - 35
+        const resetY = canvas.height - 60
+        const resetW = 70
+        const resetH = 30
+
+        ctx.fillStyle = 'rgba(255, 100, 100, 0.7)'
+        ctx.fillRect(resetX, resetY, resetW, resetH)
+        ctx.strokeStyle = '#fff'
+        ctx.lineWidth = 2
+        ctx.strokeRect(resetX, resetY, resetW, resetH)
+
         ctx.fillStyle = '#fff'
-        ctx.fillText('重置', startX + 35, resetY + 23)
-        
+        ctx.font = 'bold 14px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillText('重置', resetX + 35, resetY + 23)
+
         // 连锁数显示
         ctx.fillStyle = '#333'
         ctx.font = 'bold 18px Arial'
@@ -959,7 +1193,7 @@ export default class DominoChainGame extends SubGameBase {
     // 绘制障碍物
     drawObstacles() {
         const ctx = this.ctx
-        
+
         this.obstacles.forEach(obs => {
             if (obs.type === 'wall') {
                 ctx.fillStyle = '#555'
@@ -984,6 +1218,36 @@ export default class DominoChainGame extends SubGameBase {
                 ctx.closePath()
                 ctx.fill()
                 ctx.strokeStyle = '#e65100'
+                ctx.lineWidth = 2
+                ctx.stroke()
+            } else if (obs.type === 'ramp') {
+                ctx.fillStyle = '#7f8c8d'
+                ctx.beginPath()
+                ctx.moveTo(obs.x, this.groundY)
+                ctx.lineTo(obs.x + obs.width, this.groundY)
+                ctx.lineTo(obs.x + obs.width, this.groundY - obs.height)
+                ctx.closePath()
+                ctx.fill()
+                ctx.strokeStyle = '#555'
+                ctx.lineWidth = 2
+                ctx.stroke()
+            } else if (obs.type === 'triangle') {
+                ctx.fillStyle = '#e74c3c'
+                ctx.beginPath()
+                ctx.moveTo(obs.x + obs.width / 2, this.groundY - obs.height)
+                ctx.lineTo(obs.x, this.groundY)
+                ctx.lineTo(obs.x + obs.width, this.groundY)
+                ctx.closePath()
+                ctx.fill()
+                ctx.strokeStyle = '#c0392b'
+                ctx.lineWidth = 2
+                ctx.stroke()
+            } else if (obs.type === 'circle') {
+                ctx.fillStyle = '#3498db'
+                ctx.beginPath()
+                ctx.arc(obs.x + obs.width / 2, this.groundY - obs.height / 2, obs.width / 2, 0, Math.PI * 2)
+                ctx.fill()
+                ctx.strokeStyle = '#2980b9'
                 ctx.lineWidth = 2
                 ctx.stroke()
             } else if (obs.type === 'portal') {
